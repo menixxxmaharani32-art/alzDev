@@ -1,0 +1,58 @@
+/* HALAMAN LOGIN & DAFTAR - tenang & seimbang dengan index/dashboard */
+.auth-wrap { display:flex; flex-direction:column; justify-content:center; min-height:100vh; }
+
+.auth-card {
+    background: rgba(13, 19, 38, 0.9);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 16px;
+    padding: 24px 20px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.auth-brand {
+    text-align: center;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, #38bdf8, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.auth-title {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 4px 0 20px;
+}
+
+.auth-card .form-group { margin-bottom: 12px; }
+.auth-card .form-group label { display:block; margin-bottom:4px; font-size:11px; color:#94a3b8; font-weight:600; }
+.auth-card .form-group.last { margin-bottom: 18px; }
+
+.auth-error, .auth-success {
+    padding: 8px 10px; border-radius: 8px; margin-bottom: 14px;
+    font-size: 11px; text-align: center; font-weight: 600;
+}
+.auth-error   { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.5); color: #f87171; }
+.auth-success { background: rgba(52,211,153,.1);  border: 1px solid rgba(52,211,153,.5);  color: #34d399; }
+
+.auth-btn {
+    display: block; width: 100%; padding: 12px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff; font-size: 13px; font-weight: 700;
+    border: none; border-radius: 8px; cursor: pointer;
+    transition: filter .2s ease, transform .15s ease;
+}
+.auth-btn:hover { filter: brightness(1.1); }
+.auth-btn:active { transform: scale(0.98); }
+
+.auth-links {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    margin-top: 18px; padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.auth-link { color: #38bdf8; font-size: 12px; font-weight: 600; text-decoration: none; }
+.auth-back-link { color: #94a3b8; font-size: 11px; text-decoration: none; }

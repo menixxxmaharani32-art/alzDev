@@ -19,6 +19,7 @@ function alzz_storage_upload($tmpPath, $objectName, $mime = '') {
     $bucket = getenv('SUPABASE_BUCKET') ?: 'uploads';
     if ($base === '' || $key === '' || !is_file($tmpPath) || !function_exists('curl_init')) {
         error_log('[storage] konfigurasi belum lengkap');
+        $GLOBALS['__storage_last'] = 'Konfigurasi belum lengkap (SUPABASE_URL / SUPABASE_SERVICE_KEY / cURL)';
         return '';
     }
     if ($mime === '') { $mime = alzz_mime_file($tmpPath); }
@@ -37,6 +38,7 @@ function alzz_storage_upload($tmpPath, $objectName, $mime = '') {
     if ($code >= 200 && $code < 300) {
         return $base . '/storage/v1/object/public/' . rawurlencode($bucket) . '/' . $enc;
     }
+    $GLOBALS['__storage_last'] = 'HTTP ' . $code . ': ' . substr((string)$resp, 0, 300);
     error_log('[storage] upload gagal (' . $code . '): ' . substr((string)$resp, 0, 200));
     return '';
 }

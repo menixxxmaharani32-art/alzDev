@@ -77,7 +77,7 @@
             beep();
             // Notifikasi sistem HP (jika sudah diizinkan)
             try {
-                if (!pushActive && 'Notification' in window && Notification.permission === 'granted') {
+                if (!pushActive && !window.alzzPushOn && 'Notification' in window && Notification.permission === 'granted') {
                     var n = new Notification(title, { body: body, tag: 'alzz-' + title });
                     n.onclick = function () { window.focus(); window.location.href = targetUrl; };
                 }
@@ -158,6 +158,7 @@
                 enablePush().then(function () { pushActive = true; paint(); }).catch(function () { paint(); });
             }
             btn.onclick = function () {
+                if (window.alzzBell) { unlockAudio(); window.alzzBell(btn); return; }
                 unlockAudio(); beep();
                 if (!pushSupported) {
                     toast('Belum didukung', 'Browser ini tidak mendukung notifikasi layar HP. Gunakan Chrome terbaru (Android).', location.href, true);

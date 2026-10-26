@@ -30,6 +30,7 @@
         });
     }
     alzzPilihGambar('fotoProdukInput', 'fotoProdukPreview', 1200, 0.85, 'produk.jpg');
+    alzzPilihGambar('bannerInput', 'bannerPreview', 1600, 0.88, 'banner.jpg');
     alzzPilihGambar('qrisInput', 'qrisPreview', 1600, 0.92, 'qris.jpg'); // QRIS dibuat lebih tajam agar tetap terbaca scanner
 
 // ===== Dashboard admin: notifikasi =====

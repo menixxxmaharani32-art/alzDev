@@ -240,22 +240,25 @@ $tinggi_maks  = 84; // piksel
             <!-- Pengaturan Situs & Kontak -->
             <div class="admin-card" style="margin-bottom: 16px; border-color: #38bdf8;">
                 <h3 style="color: #38bdf8; font-size: 13px; margin-bottom: 10px;">Pengaturan Situs & Kontak</h3>
-                <?php if (($_GET['err'] ?? '') === 'musik'): ?>
-                    <div style="background: rgba(239,68,68,0.12); border: 1px solid #ef4444; color: #fca5a5; padding: 8px; border-radius: 6px; font-size: 10px; margin-bottom: 8px;">Musik gagal diunggah (pengaturan lain tetap tersimpan).<?php if (!empty($_GET['why'])): ?><br><b>Penyebab:</b> <?php echo htmlspecialchars(substr($_GET['why'], 0, 220)); ?><?php endif; ?></div>
+                <?php if (($_GET['err'] ?? '') === 'upload'): ?>
+                    <div style="background: rgba(239,68,68,0.12); border: 1px solid #ef4444; color: #fca5a5; padding: 8px; border-radius: 6px; font-size: 10px; margin-bottom: 8px;">Banner / musik gagal diunggah (pengaturan lain tetap tersimpan).<?php if (!empty($_GET['why'])): ?><br><b>Penyebab:</b> <?php echo htmlspecialchars(substr($_GET['why'], 0, 220)); ?><?php endif; ?></div>
                 <?php endif; ?>
                 <form action="" method="POST" enctype="multipart/form-data">
                     <div style="margin-bottom: 8px;">
-                        <label style="color: #cbd5e1; font-size: 10px; display: block; margin-bottom: 2px;">URL Banner / Foto Utama:</label>
-                        <input type="text" name="banner_url" value="<?php echo htmlspecialchars($admin_data['banner_url'] ?? ''); ?>" placeholder="https://files.catbox.moe/xxxxx.jpg" style="width: 100%; padding: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 11px;">
+                        <label style="color: #cbd5e1; font-size: 10px; display: block; margin-bottom: 4px;">Banner / Foto Utama (pilih dari galeri):</label>
+                        <input type="file" name="banner_file" id="bannerInput" accept="image/*" style="width: 100%; color: #cbd5e1; font-size: 11px;">
+                        <img id="bannerPreview" alt="Banner saat ini" <?php if (!empty($admin_data['banner_url'])): ?>src="<?php echo htmlspecialchars($admin_data['banner_url']); ?>"<?php endif; ?> style="<?php echo empty($admin_data['banner_url']) ? 'display: none; ' : ''; ?>width: 100%; max-height: 140px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); margin-top: 8px;">
+                        <?php if (!empty($admin_data['banner_url'])): ?>
+                            <label style="color: #94a3b8; font-size: 10px; display: block; margin-top: 6px;"><input type="checkbox" name="hapus_banner" value="1"> Hapus banner (kosongkan)</label>
+                        <?php endif; ?>
                     </div>
                     <div style="margin-bottom: 8px;">
-                        <label style="color: #cbd5e1; font-size: 10px; display: block; margin-bottom: 2px;">URL Musik MP3 (Opsional):</label>
-                        <input type="text" name="music_url" value="<?php echo htmlspecialchars($admin_data['music_url'] ?? ''); ?>" placeholder="https://.../music.mp3" style="width: 100%; padding: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 11px;">
-                        <label style="color: #cbd5e1; font-size: 10px; display: block; margin: 8px 0 2px;">Atau upload file musik dari HP (mp3/m4a/ogg/wav, maks 15MB):</label>
+                        <label style="color: #cbd5e1; font-size: 10px; display: block; margin-bottom: 4px;">Musik (pilih file dari HP: mp3/m4a/ogg/wav, maks 15MB):</label>
                         <input type="file" name="music_file" accept="audio/*" style="width: 100%; color: #cbd5e1; font-size: 11px;">
                         <?php if (!empty($admin_data['music_url'])): ?>
                             <div style="margin-top: 8px; color: #94a3b8; font-size: 10px;">Musik saat ini (putar untuk tes):</div>
                             <audio controls preload="none" src="<?php echo htmlspecialchars($admin_data['music_url']); ?>" style="width: 100%; margin-top: 4px;"></audio>
+                            <label style="color: #94a3b8; font-size: 10px; display: block; margin-top: 6px;"><input type="checkbox" name="hapus_musik" value="1"> Matikan musik (kosongkan)</label>
                         <?php endif; ?>
                     </div>
                     <div style="margin-bottom: 12px;">

@@ -220,33 +220,77 @@ if (isset($_GET['hapus_metode'])) {
 }
 
 // 8. Proses Update Pengaturan Situs & Nomor WhatsApp Admin
+// Banner dipilih dari galeri HP (jpg/png/gif/webp, maks 8MB) dan musik dipilih dari file HP (maks 15MB),
+// keduanya disimpan di Supabase Storage. Kalau tidak memilih file baru, nilai lama tetap dipakai.
 if (isset($_POST['update_pengaturan'])) {
-    $banner_url = db_real_escape_string($conn, $_POST['banner_url']);
-    $music_raw = trim($_POST['music_url'] ?? '');
-    // Kolom URL dikosongkan = musik dimatikan
-    // Upload file musik langsung dari HP (mp3/m4a/ogg/wav, maks 15MB)
-    if (isset($_FILES['music_file']) && $_FILES['music_file']['error'] === UPLOAD_ERR_OK) {
-        $ext = strtolower(pathinfo($_FILES['music_file']['name'], PATHINFO_EXTENSION));
-        if (in_array($ext, ['mp3', 'm4a', 'ogg', 'wav', 'aac'], true) && $_FILES['music_file']['size'] <= 15 * 1024 * 1024) {
-            require_once ALZZ_ROOT . '/storage_pg.php';
-            $mimes = ['mp3' => 'audio/mpeg', 'm4a' => 'audio/mp4', 'ogg' => 'audio/ogg', 'wav' => 'audio/wav', 'aac' => 'audio/aac'];
-            $url_musik = alzz_storage_upload($_FILES['music_file']['tmp_name'], 'music/music_' . time() . '.' . $ext, $mimes[$ext]); // simpan ke Supabase Storage
-            if ($url_musik !== '') {
-                $music_raw = $url_musik;
+    $cek_admin  = db_query($conn, "SELECT * FROM admin ORDER BY id LIMIT 1");
+    $ada_admin  = ($cek_admin && db_num_rows($cek_admin) > 0);
+    $admin_lama = $ada_admin ? (db_fetch_assoc($cek_admin) ?: []) : [];
+    $banner_raw = (string)($admin_lama['banner_url'] ?? '');
+    $music_raw  = (string)($admin_lama['music_url'] ?? '');
+    $err_upload = [];
+
+    // Centang "hapus" = dikosongkan (musik dimatikan / banner dihilangkan)
+    if (!empty($_POST['hapus_banner'])) { $banner_raw = ''; }
+    if (!empty($_POST['hapus_musik']))  { $music_raw  = ''; }
+
+    // ---- Banner dari galeri ----
+    if (isset($_FILES['banner_file']) && $_FILES['banner_file']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $why_b = '';
+        if ($_FILES['banner_file']['error'] === UPLOAD_ERR_OK) {
+            $tmp  = $_FILES['banner_file']['tmp_name'];
+            $info = @getimagesize($tmp);
+            $boleh = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_GIF => 'gif', 18 => 'webp']; // 18 = WEBP
+            if ($info && isset($boleh[$info[2]]) && $_FILES['banner_file']['size'] <= 8 * 1024 * 1024) {
+                require_once ALZZ_ROOT . '/storage_pg.php';
+                $nama_obj = 'banner/banner_' . time() . '_' . bin2hex(random_bytes(3)) . '.' . $boleh[$info[2]];
+                $url_banner = alzz_storage_upload($tmp, $nama_obj, $info['mime']); // simpan ke Supabase Storage
+                if ($url_banner !== '') { $banner_raw = $url_banner; }
+                else { $why_b = $GLOBALS['__storage_last'] ?? 'Gagal menyimpan ke Supabase Storage'; }
+            } else {
+                $why_b = 'File bukan gambar yang didukung atau lebih dari 8MB';
             }
+        } else {
+            $why_b = 'Upload ditolak server (kode ' . intval($_FILES['banner_file']['error']) . ')';
         }
+        if ($why_b !== '') { $err_upload[] = 'Banner: ' . $why_b; }
     }
-    $music_url = db_real_escape_string($conn, $music_raw);
+
+    // ---- Musik dari file HP ----
+    if (isset($_FILES['music_file']) && $_FILES['music_file']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $why_m = '';
+        if ($_FILES['music_file']['error'] === UPLOAD_ERR_OK) {
+            $ext = strtolower(pathinfo($_FILES['music_file']['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['mp3', 'm4a', 'ogg', 'wav', 'aac'], true) && $_FILES['music_file']['size'] <= 15 * 1024 * 1024) {
+                require_once ALZZ_ROOT . '/storage_pg.php';
+                $mimes = ['mp3' => 'audio/mpeg', 'm4a' => 'audio/mp4', 'ogg' => 'audio/ogg', 'wav' => 'audio/wav', 'aac' => 'audio/aac'];
+                $url_musik = alzz_storage_upload($_FILES['music_file']['tmp_name'], 'music/music_' . time() . '.' . $ext, $mimes[$ext]); // simpan ke Supabase Storage
+                if ($url_musik !== '') { $music_raw = $url_musik; }
+                else { $why_m = $GLOBALS['__storage_last'] ?? 'Gagal menyimpan ke Supabase Storage'; }
+            } else {
+                $why_m = 'Format musik tidak didukung (mp3/m4a/ogg/wav/aac) atau lebih dari 15MB';
+            }
+        } else {
+            $why_m = 'Upload ditolak server (kode ' . intval($_FILES['music_file']['error']) . ')';
+        }
+        if ($why_m !== '') { $err_upload[] = 'Musik: ' . $why_m; }
+    }
+
+    $banner_url = db_real_escape_string($conn, $banner_raw);
+    $music_url  = db_real_escape_string($conn, $music_raw);
     $no_wa = db_real_escape_string($conn, $_POST['no_wa']);
-    
-    $cek_admin = db_query($conn, "SELECT * FROM admin ORDER BY id LIMIT 1");
-    if ($cek_admin && db_num_rows($cek_admin) > 0) {
+
+    if ($ada_admin) {
         db_query($conn, "UPDATE admin SET banner_url = '$banner_url', music_url = '$music_url', no_wa = '$no_wa' WHERE id = (SELECT id FROM admin ORDER BY id LIMIT 1)");
     } else {
         db_query($conn, "INSERT INTO admin (banner_url, music_url, no_wa) VALUES ('$banner_url', '$music_url', '$no_wa')");
     }
 
-    header("Location: admin_dashboard.php?tab=situs");
+    $balik = "admin_dashboard.php?tab=situs";
+    if (!empty($err_upload)) {
+        $balik .= "&err=upload&why=" . urlencode(implode(' | ', $err_upload));
+    }
+    header("Location: " . $balik);
     exit;
 }
 

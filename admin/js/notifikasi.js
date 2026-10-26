@@ -141,9 +141,14 @@
 
         (function addBell() {
             var holder = document.querySelector('.section-header > div');
-            if (!holder) return;
-            var btn = document.createElement('button');
-            btn.id = 'notif-bell'; btn.type = 'button';
+            var btn = document.getElementById('notif-bell');
+            var tombolBaru = false;
+            if (!btn) {
+                if (!holder) return;
+                btn = document.createElement('button');
+                btn.id = 'notif-bell'; btn.type = 'button';
+                tombolBaru = true;
+            }
             function paint() {
                 var ok = pushActive;
                 btn.className = ok ? 'on' : ''; btn.textContent = ok ? '🔔 On' : '🔔';
@@ -174,7 +179,7 @@
                 });
             };
             paint();
-            holder.insertBefore(btn, holder.firstChild);
+            if (tombolBaru) holder.insertBefore(btn, holder.firstChild);
         })();
 
         // ----- Polling -----

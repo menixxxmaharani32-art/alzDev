@@ -36,6 +36,7 @@ function db_pdo() {
             PDO::ATTR_EMULATE_PREPARES   => true,   // wajib untuk Supabase pooler (tanpa prepared statement di server)
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_TIMEOUT            => 10,
+            PDO::ATTR_PERSISTENT         => true,   // pakai ulang koneksi (jauh lebih cepat)
         ));
     } catch (Throwable $e) {
         error_log('[db] koneksi gagal: ' . $e->getMessage());

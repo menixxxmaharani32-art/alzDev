@@ -39,7 +39,21 @@ $__fe = ALZZ_ADMIN_DIR . '/frontend';
     };
     </script>
     <script src="admin/frontend/js/foto_produk.js?v=<?php echo filemtime($__fe . '/js/foto_produk.js'); ?>"></script>
-    <script src="admin/frontend/js/notifikasi.js?v=<?php echo filemtime($__fe . '/js/notifikasi.js'); ?>"></script>
+    <script src="admin/frontend/js/notifikasi.js?v=<?php echo filemtime($__fe . '/js/notifikasi.js'); ?>"
+            onerror="alzzJsErr('notifikasi.js gagal dimuat (file tidak ditemukan di server)')"></script>
+    <script>
+    // Tampilkan error JavaScript di layar (bantuan diagnosa)
+    function alzzJsErr(m) {
+        var d = document.getElementById('js-err');
+        if (!d) {
+            d = document.createElement('div'); d.id = 'js-err';
+            d.style.cssText = 'position:fixed;left:8px;right:8px;bottom:70px;z-index:9999;background:#7f1d1d;color:#fff;font-size:11px;padding:8px;border-radius:8px';
+            document.body.appendChild(d);
+        }
+        d.textContent = 'JS error: ' + m;
+    }
+    window.addEventListener('error', function (e) { alzzJsErr((e.message || 'tidak diketahui') + ' (' + (e.filename || '').split('/').pop() + ':' + (e.lineno || '?') + ')'); });
+    </script>
 
 </body>
 </html>

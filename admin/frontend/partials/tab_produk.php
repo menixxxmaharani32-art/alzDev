@@ -9,7 +9,7 @@ if (!defined('ALZZ_ADMIN')) { http_response_code(403); exit('Akses ditolak'); }
                 <h3 style="color: #38bdf8; font-size: 13px; margin-bottom: 10px;">Tambah Produk Baru</h3>
                 
                 <?php if (($_GET['err'] ?? '') === 'foto'): ?>
-                    <div style="background: rgba(239,68,68,0.12); border: 1px solid #ef4444; color: #fca5a5; padding: 8px; border-radius: 6px; font-size: 10px; margin-bottom: 8px;">Foto gagal diunggah. Pilih foto (JPG/PNG/WEBP/GIF, maks 8MB) lalu coba lagi.</div>
+                    <div style="background: rgba(239,68,68,0.12); border: 1px solid #ef4444; color: #fca5a5; padding: 8px; border-radius: 6px; font-size: 10px; margin-bottom: 8px;">Foto gagal diunggah. Pilih foto (JPG/PNG/WEBP/GIF, maks 8MB) lalu coba lagi.<?php if (!empty($_GET['why'])): ?><br><b>Penyebab:</b> <?php echo htmlspecialchars(substr($_GET['why'], 0, 220)); ?><?php endif; ?></div>
                 <?php endif; ?>
                 <form action="" method="POST" enctype="multipart/form-data" id="formTambahProduk">
                     <div style="margin-bottom: 8px;">

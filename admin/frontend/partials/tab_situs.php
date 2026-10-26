@@ -7,6 +7,9 @@ if (!defined('ALZZ_ADMIN')) { http_response_code(403); exit('Akses ditolak'); }
             <!-- Pengaturan Situs & Kontak -->
             <div class="admin-card" style="margin-bottom: 16px; border-color: #38bdf8;">
                 <h3 style="color: #38bdf8; font-size: 13px; margin-bottom: 10px;">Pengaturan Situs & Kontak</h3>
+                <?php if (($_GET['err'] ?? '') === 'musik'): ?>
+                    <div style="background: rgba(239,68,68,0.12); border: 1px solid #ef4444; color: #fca5a5; padding: 8px; border-radius: 6px; font-size: 10px; margin-bottom: 8px;">Musik gagal diunggah (pengaturan lain tetap tersimpan).<?php if (!empty($_GET['why'])): ?><br><b>Penyebab:</b> <?php echo htmlspecialchars(substr($_GET['why'], 0, 220)); ?><?php endif; ?></div>
+                <?php endif; ?>
                 <form action="" method="POST" enctype="multipart/form-data">
                     <div style="margin-bottom: 8px;">
                         <label style="color: #cbd5e1; font-size: 10px; display: block; margin-bottom: 2px;">URL Banner / Foto Utama:</label>

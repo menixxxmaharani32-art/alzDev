@@ -48,19 +48,30 @@ if (isset($_POST['tambah_produk'])) {
 
     // Foto produk dipilih dari galeri HP (jpg/png/gif/webp, maks 8MB)
     $foto_path = '';
-    if (isset($_FILES['foto_file']) && $_FILES['foto_file']['error'] === UPLOAD_ERR_OK) {
-        $tmp  = $_FILES['foto_file']['tmp_name'];
-        $info = @getimagesize($tmp);
-        $boleh = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_GIF => 'gif', 18 => 'webp']; // 18 = WEBP
-        if ($info && isset($boleh[$info[2]]) && $_FILES['foto_file']['size'] <= 8 * 1024 * 1024) {
-            require_once ALZZ_ROOT . '/storage_pg.php';
-            $nama_obj = 'produk/produk_' . time() . '_' . bin2hex(random_bytes(3)) . '.' . $boleh[$info[2]];
-            $url_foto = alzz_storage_upload($tmp, $nama_obj, $info['mime']); // simpan ke Supabase Storage
-            if ($url_foto !== '') { $foto_path = $url_foto; }
+    $alasan = 'Tidak ada file foto yang terkirim';
+    if (isset($_FILES['foto_file'])) {
+        $kode = $_FILES['foto_file']['error'];
+        if ($kode !== UPLOAD_ERR_OK) {
+            $alasan = 'Upload ke server gagal (kode ' . $kode . ($kode == 1 || $kode == 2 ? ', file terlalu besar' : '') . ')';
+        } else {
+            $tmp  = $_FILES['foto_file']['tmp_name'];
+            $info = @getimagesize($tmp);
+            $boleh = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_GIF => 'gif', 18 => 'webp']; // 18 = WEBP
+            if (!$info || !isset($boleh[$info[2]])) {
+                $alasan = 'File bukan gambar JPG/PNG/GIF/WEBP';
+            } elseif ($_FILES['foto_file']['size'] > 8 * 1024 * 1024) {
+                $alasan = 'Ukuran foto lebih dari 8MB';
+            } else {
+                require_once ALZZ_ROOT . '/storage_pg.php';
+                $nama_obj = 'produk/produk_' . time() . '_' . bin2hex(random_bytes(3)) . '.' . $boleh[$info[2]];
+                $url_foto = alzz_storage_upload($tmp, $nama_obj, $info['mime']); // simpan ke Supabase Storage
+                if ($url_foto !== '') { $foto_path = $url_foto; }
+                else { $alasan = 'Penyimpanan Supabase menolak: ' . ($GLOBALS['__storage_last'] ?? 'tanpa keterangan'); }
+            }
         }
     }
     if ($foto_path === '') {
-        header("Location: admin_dashboard.php?tab=produk&err=foto");
+        header("Location: admin_dashboard.php?tab=produk&err=foto&why=" . urlencode(substr($alasan, 0, 220)));
         exit;
     }
     $foto_produk = db_real_escape_string($conn, $foto_path);
@@ -116,14 +127,25 @@ if (isset($_POST['update_pengaturan'])) {
     $music_raw = trim($_POST['music_url'] ?? '');
     // Kolom URL dikosongkan = musik dimatikan
     // Upload file musik langsung dari HP (mp3/m4a/ogg/wav, maks 15MB)
+    $musik_gagal = '';
+    if (isset($_FILES['music_file']) && $_FILES['music_file']['error'] !== UPLOAD_ERR_NO_FILE && $_FILES['music_file']['error'] !== UPLOAD_ERR_OK) {
+        $kode = $_FILES['music_file']['error'];
+        $musik_gagal = 'Upload ke server gagal (kode ' . $kode . ($kode == 1 || $kode == 2 ? ', file terlalu besar' : '') . ')';
+    }
     if (isset($_FILES['music_file']) && $_FILES['music_file']['error'] === UPLOAD_ERR_OK) {
         $ext = strtolower(pathinfo($_FILES['music_file']['name'], PATHINFO_EXTENSION));
-        if (in_array($ext, ['mp3', 'm4a', 'ogg', 'wav', 'aac'], true) && $_FILES['music_file']['size'] <= 15 * 1024 * 1024) {
+        if (!in_array($ext, ['mp3', 'm4a', 'ogg', 'wav', 'aac'], true)) {
+            $musik_gagal = 'Format musik harus mp3, m4a, ogg, wav, atau aac';
+        } elseif ($_FILES['music_file']['size'] > 15 * 1024 * 1024) {
+            $musik_gagal = 'Ukuran musik lebih dari 15MB';
+        } else {
             require_once ALZZ_ROOT . '/storage_pg.php';
             $mimes = ['mp3' => 'audio/mpeg', 'm4a' => 'audio/mp4', 'ogg' => 'audio/ogg', 'wav' => 'audio/wav', 'aac' => 'audio/aac'];
             $url_musik = alzz_storage_upload($_FILES['music_file']['tmp_name'], 'music/music_' . time() . '.' . $ext, $mimes[$ext]); // simpan ke Supabase Storage
             if ($url_musik !== '') {
                 $music_raw = $url_musik;
+            } else {
+                $musik_gagal = 'Penyimpanan Supabase menolak: ' . ($GLOBALS['__storage_last'] ?? 'tanpa keterangan');
             }
         }
     }
@@ -137,7 +159,7 @@ if (isset($_POST['update_pengaturan'])) {
         db_query($conn, "INSERT INTO admin (banner_url, music_url, no_wa) VALUES ('$banner_url', '$music_url', '$no_wa')");
     }
 
-    header("Location: admin_dashboard.php?tab=situs");
+    header("Location: admin_dashboard.php?tab=situs" . ($musik_gagal !== '' ? '&err=musik&why=' . urlencode(substr($musik_gagal, 0, 220)) : ''));
     exit;
 }
 

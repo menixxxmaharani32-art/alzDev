@@ -22,6 +22,7 @@ $__fe = ALZZ_ADMIN_DIR . '/frontend';
 <?php include $__fe . '/partials/tab_situs.php'; ?>
 <?php include $__fe . '/partials/tab_pembayaran.php'; ?>
 <?php include $__fe . '/partials/tab_produk.php'; ?>
+<?php include $__fe . '/partials/tab_diskon.php'; ?>
 <?php include $__fe . '/partials/tab_users.php'; ?>
 
     </div>

@@ -370,7 +370,13 @@ if ($id_produk === 0 && !$success_order) {
                                     $status_db = trim($m['status'] ?? '');
                                     
                                     $pemilik_m = (!empty($status_db) && $status_db !== '-') ? ' - a.n ' . $status_db : '';
-                                    $val_str = $nama_m . ' (' . $tujuan_m . $pemilik_m . ')';
+                                    // Untuk QRIS (tujuan berupa alamat gambar) yang disimpan di pesanan cukup nama metode,
+                                    // bukan alamat gambarnya yang panjang (bisa membuat penyimpanan pesanan gagal)
+                                    if (filter_var($tujuan_m, FILTER_VALIDATE_URL)) {
+                                        $val_str = $nama_m . ($pemilik_m !== '' ? ' (' . ltrim($pemilik_m, ' -') . ')' : '');
+                                    } else {
+                                        $val_str = $nama_m . ' (' . $tujuan_m . $pemilik_m . ')';
+                                    }
                                     
                                     $is_img = (filter_var($tujuan_m, FILTER_VALIDATE_URL) || stripos($nama_m, 'qris') !== false);
                                 ?>

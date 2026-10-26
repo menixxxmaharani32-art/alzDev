@@ -1,0 +1,14 @@
+# Server PHP (FrankenPHP) untuk Vercel
+FROM dunglas/frankenphp:1-php8.4-bookworm
+
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+    && install-php-extensions pdo_pgsql
+
+# Batas upload (foto produk maks 8MB, musik maks 15MB) dan pengaturan aman
+RUN printf "upload_max_filesize=20M\npost_max_size=25M\noutput_buffering=4096\nexpose_php=Off\n" > "$PHP_INI_DIR/conf.d/zz-app.ini"
+
+WORKDIR /app
+COPY . /app
+COPY Caddyfile /etc/frankenphp/Caddyfile
+
+CMD ["frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile"]

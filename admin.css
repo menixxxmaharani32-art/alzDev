@@ -1,0 +1,374 @@
+/* CSS khusus dashboard admin (dipindah dari <style> di admin_dashboard.php, isi tidak diubah) */
+        body {
+            padding-bottom: 90px !important;
+            background-color: #0d1117;
+            color: #fff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .admin-nav-bar {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 480px;
+            background: #0d1527;
+            border-top: 1px solid #38bdf8;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 4px;
+            z-index: 9999;
+            box-sizing: border-box;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.5);
+        }
+        .admin-nav-link {
+            background: rgba(56, 189, 248, 0.08);
+            border: 1px solid #38bdf8;
+            color: #38bdf8;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 8px 0;
+            border-radius: 6px;
+            text-align: center;
+            text-decoration: none;
+            flex: 1;
+            margin: 0 2px;
+        }
+        .admin-nav-link.active-tab {
+            background: #38bdf8;
+            color: #000;
+        }
+        /* ===== NOTIFIKASI ===== */
+        .admin-nav-link { position: relative; }
+        .nav-badge {
+            position: absolute; top: -6px; right: 4px;
+            min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+            background: #ef4444; color: #fff; border-radius: 8px;
+            font-size: 9px; line-height: 16px; font-weight: bold; text-align: center;
+            display: none;
+        }
+        #toast-wrap {
+            position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+            width: calc(100% - 20px); max-width: 460px; z-index: 10000;
+            display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+        }
+        .notif-toast {
+            pointer-events: auto; cursor: pointer;
+            background: #0d1527; color: #fff; border: 1px solid #38bdf8; border-left-width: 5px;
+            border-radius: 8px; padding: 10px 12px; font-size: 12px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.6);
+            animation: toastIn .25s ease-out;
+        }
+        .notif-toast strong { color: #38bdf8; display: block; font-size: 12px; margin-bottom: 2px; }
+        .notif-toast small { color: #94a3b8; font-size: 10px; }
+        .notif-toast.warn { border-color: #facc15; }
+        .notif-toast.warn strong { color: #facc15; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+        #notif-bell {
+            background: rgba(56,189,248,0.1); border: 1px solid #38bdf8; color: #38bdf8;
+            border-radius: 6px; font-size: 12px; padding: 4px 8px; cursor: pointer;
+        }
+        #notif-bell.on { background: #38bdf8; color: #000; }
+
+/* ==========================================================================
+   PENYEMPURNAAN TAMPILAN ADMIN (hanya dashboard admin; style.css tidak diubah)
+   Tujuan: semua tab (Pendapatan, Pesanan, Pembayaran, Produk, User) terasa serasi.
+   ========================================================================== */
+
+/* Menu bawah: lebih lembut, tab aktif ditandai halus (bukan kotak penuh) */
+.admin-nav-bar {
+    background: rgba(10, 16, 32, 0.92);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 18px 18px 0 0;
+    gap: 4px;
+}
+.admin-nav-link {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: var(--text-muted);
+    transition: background .2s, color .2s, border-color .2s;
+}
+.admin-nav-link.active-tab {
+    background: rgba(56, 189, 248, 0.14);
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #38bdf8;
+}
+
+/* Kartu admin: radius & garis tipis yang sama dengan kartu pendapatan */
+.mobile-container .admin-card {
+    border-radius: 16px;
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Kolom isian: tanda fokus yang jelas */
+.mobile-container input:focus,
+.mobile-container textarea:focus,
+.mobile-container select:focus {
+    outline: none;
+    border-color: rgba(56, 189, 248, 0.6) !important;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+}
+
+/* Perpindahan tab lebih halus */
+.tab-content.active { animation: tabMasuk .25s ease-out; }
+@keyframes tabMasuk { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Notifikasi (toast) ikut gaya yang sama */
+.notif-toast { border-radius: 12px; border-width: 1px; border-left-width: 4px; }
+
+/* ==========================================================================
+   Tampilan tab Pendapatan (dashboard admin)
+   Memakai warna & variabel dari style.css (--accent-blue, --text-muted, dll),
+   jadi serasi dengan tampilan yang sudah ada.
+   ========================================================================== */
+
+/* --- 5 tombol navigasi bawah: dirapikan agar muat di layar kecil --- */
+.admin-nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+    padding: 8px 2px;
+    min-height: 34px;
+}
+.admin-nav-bar { padding: 8px 3px; }
+
+/* --- Kartu ringkasan --- */
+.rev-eyebrow {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.rev-rp {
+    font-size: .55em;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-right: 4px;
+    letter-spacing: 0;
+}
+.rev-sub {
+    margin-top: 6px;
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.rev-hero {
+    padding: 18px 16px;
+    margin-bottom: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    background:
+        radial-gradient(circle at 100% 0%, rgba(129, 140, 248, 0.16), transparent 55%),
+        linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(13, 19, 38, 0.9));
+}
+.rev-hero-value {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.rev-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.rev-card {
+    padding: 14px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    min-width: 0;
+}
+.rev-value {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-color);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+.rev-pending .rev-value { color: #facc15; }
+.rev-pending .rev-rp { color: rgba(250, 204, 21, 0.7); }
+
+/* --- Panel grafik & rincian --- */
+.rev-panel { margin-top: 14px; }
+
+.rev-seg {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.rev-seg a {
+    flex: 1;
+    text-align: center;
+    padding: 7px 0;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text-muted);
+    transition: background .2s, color .2s;
+}
+.rev-seg a.on {
+    background: var(--accent-blue);
+    color: #04101c;
+    font-weight: 700;
+}
+
+.rev-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+.rev-meta strong {
+    font-size: 11px;
+    color: var(--text-color);
+    font-weight: 600;
+    text-align: right;
+}
+
+/* --- Grafik batang --- */
+.rev-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    padding: 10px 2px 4px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.rev-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.rev-track {
+    height: 108px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+}
+.rev-amt {
+    font-size: 8px;
+    line-height: 12px;
+    height: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.rev-col.now .rev-amt { color: var(--accent-blue); font-weight: 700; }
+.rev-bar {
+    width: 72%;
+    max-width: 22px;
+    border-radius: 5px 5px 2px 2px;
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.75), rgba(129, 140, 248, 0.45));
+}
+.rev-col.now .rev-bar {
+    background: linear-gradient(180deg, #38bdf8, #6366f1);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+}
+.rev-col.zero .rev-bar { background: rgba(255, 255, 255, 0.1); }
+.rev-lbl {
+    margin-top: 6px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+.rev-lbl2 {
+    font-size: 8px;
+    color: var(--text-muted);
+}
+.rev-col.now .rev-lbl { color: var(--accent-blue); }
+
+.rev-empty {
+    padding: 18px 0 22px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* --- Daftar rincian --- */
+.rev-list { display: flex; flex-direction: column; }
+.rev-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 2px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.rev-row:last-child { border-bottom: none; }
+.rev-row strong {
+    display: inline;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+.rev-row small {
+    display: block;
+    margin-top: 2px;
+    font-size: 9px;
+    color: var(--text-muted);
+}
+.rev-row-val {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent-emerald);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.rev-row.zero .rev-row-val { color: var(--text-muted); font-weight: 500; }
+.rev-row.zero strong { color: #cbd5e1; font-weight: 500; }
+.rev-row.now {
+    margin: 2px -8px;
+    padding: 9px 8px;
+    border-radius: 10px;
+    border-bottom-color: transparent;
+    background: rgba(56, 189, 248, 0.07);
+}
+.rev-tag {
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    color: var(--accent-blue);
+    background: rgba(56, 189, 248, 0.14);
+    vertical-align: 1px;
+}
+
+.rev-note {
+    margin-top: 12px;
+    font-size: 9.5px;
+    line-height: 1.55;
+    color: var(--text-muted);
+}
+.rev-note b { color: #cbd5e1; font-weight: 600; }

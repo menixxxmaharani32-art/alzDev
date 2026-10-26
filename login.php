@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['admin_logged'] = true;
             $_SESSION['admin_user'] = $row['username'];
             alzz_admin_remember($conn, $row['username']);
+            session_write_close(); // pastikan sesi sudah tersimpan di DB sebelum redirect
             header("Location: admin_dashboard.php");
             exit;
         }
@@ -31,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['last_activity'] = time();
             $_SESSION['buyer_logged'] = true;
             $_SESSION['buyer_user'] = $row['username'];
-            header("Location: index.php"); 
+            session_write_close(); // pastikan sesi sudah tersimpan di DB sebelum redirect
+            header("Location: index.php");
             exit;
         } else {
             $error = "Password salah!";

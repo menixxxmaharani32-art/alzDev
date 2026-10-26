@@ -7,6 +7,7 @@ if (!defined('ADMIN_REMEMBER_DAYS')) define('ADMIN_REMEMBER_DAYS', 90);
 if (!defined('ADMIN_REMEMBER_COOKIE')) define('ADMIN_REMEMBER_COOKIE', 'alzz_admin_token');
 
 if (session_status() === PHP_SESSION_NONE) {
+    require_once __DIR__ . '/db_pg.php'; // dimuat lebih dulu agar $_SERVER['HTTPS'] terdeteksi di belakang proxy Vercel
     // Server boleh menyimpan data sesi lebih lama (agar tidak cepat dibersihkan server)
     @ini_set('session.gc_maxlifetime', (string)(ADMIN_REMEMBER_DAYS * 86400));
     session_set_cookie_params([
@@ -16,7 +17,6 @@ if (session_status() === PHP_SESSION_NONE) {
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
-    require_once __DIR__ . '/db_pg.php';
     db_register_session_handler(); // sesi login disimpan di database
     session_start();
 }

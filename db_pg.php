@@ -107,8 +107,21 @@ class AlzzDbSessionHandler implements SessionHandlerInterface {
     public function write(string $id, string $data): bool {
         $pdo = db_pdo(); if (!$pdo) return false;
         $q = $pdo->quote($id); $d = $pdo->quote(base64_encode($data));
-        $r = $pdo->exec("INSERT INTO php_sessions (id, data, updated_at) VALUES ($q, $d, (NOW() AT TIME ZONE 'Asia/Jakarta'))
-                         ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at");
+        $sql = "INSERT INTO php_sessions (id, data, updated_at) VALUES ($q, $d, (NOW() AT TIME ZONE 'Asia/Jakarta'))
+                ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at";
+        $r = $pdo->exec($sql);
+        if ($r === false) {
+            // Kemungkinan tabel php_sessions belum dibuat -> buat otomatis lalu coba lagi
+            $pdo->exec("CREATE TABLE IF NOT EXISTS php_sessions (
+                id varchar(128) primary key,
+                data text not null default '',
+                updated_at timestamp not null default (now() at time zone 'Asia/Jakarta'))");
+            $r = $pdo->exec($sql);
+            if ($r === false) {
+                $e = $pdo->errorInfo();
+                error_log('[session] gagal menyimpan sesi: ' . ($e[2] ?? ''));
+            }
+        }
         return $r !== false;
     }
     public function destroy(string $id): bool {

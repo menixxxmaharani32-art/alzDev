@@ -5,6 +5,7 @@ header("Pragma: no-cache");
 
 require_once 'auth_guard.php';
 require_once 'config.php';
+require_once 'diskon_lib.php';
 
 // 1. CEK APAKAH AKUN BUYER SUDAH DIHAPUS DARI DATABASE
 if (isset($_SESSION['buyer_logged']) && isset($_SESSION['buyer_user'])) {
@@ -35,6 +36,9 @@ if ($id_produk > 0) {
         exit;
     }
 }
+
+// Harga akhir (sudah termasuk diskon bila ada) - dihitung di server
+$hinfo = $produk ? alzz_harga_info($produk) : null;
 
 // Ambil metode pembayaran dari database
 $metode_result = db_query($conn, "SELECT * FROM metode_pembayaran ORDER BY id");
@@ -75,8 +79,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $id_produk > 0) {
         echo "<script>alert('Harap unggah bukti pembayaran foto dengan benar!');</script>";
     } else {
         // Menyimpan pesanan lengkap dengan username buyer yang sedang login
-        $query = "INSERT INTO pesanan (produk_id, username, nama, alamat, device, metode_pembayaran, bukti_pembayaran, ip_address, status, tanggal) VALUES ('$id_produk', '$current_buyer', '$nama', '$alamat', '$device', '$metode_pembayaran', '$bukti_pembayaran', '-', '$status', '$tanggal')";
-        if (db_query($conn, $query)) {
+        // harga_beli = harga akhir saat dibeli (setelah diskon), dipakai untuk menghitung pendapatan
+        $harga_final = intval($hinfo['harga_akhir']);
+        $query = "INSERT INTO pesanan (produk_id, username, nama, alamat, device, metode_pembayaran, bukti_pembayaran, ip_address, status, tanggal, harga_beli) VALUES ('$id_produk', '$current_buyer', '$nama', '$alamat', '$device', '$metode_pembayaran', '$bukti_pembayaran', '-', '$status', '$tanggal', $harga_final)";
+        $simpan_ok = db_query($conn, $query);
+        if (!$simpan_ok) {
+            // cadangan bila kolom harga_beli belum ada
+            $query = "INSERT INTO pesanan (produk_id, username, nama, alamat, device, metode_pembayaran, bukti_pembayaran, ip_address, status, tanggal) VALUES ('$id_produk', '$current_buyer', '$nama', '$alamat', '$device', '$metode_pembayaran', '$bukti_pembayaran', '-', '$status', '$tanggal')";
+            $simpan_ok = db_query($conn, $query);
+        }
+        if ($simpan_ok) {
             $order_id = db_insert_id($conn);
             // Kirim notifikasi push ke HP admin
             require_once 'push_lib.php';
@@ -170,6 +182,9 @@ if ($id_produk === 0 && !$success_order) {
                     <div>Alamat: <strong><?php echo htmlspecialchars($success_order['alamat']); ?></strong></div>
                     <div>Merk Device: <strong><?php echo htmlspecialchars($success_order['device']); ?></strong></div>
                     <div style="margin-top: 4px;">Metode Pembayaran: <strong><?php echo htmlspecialchars($success_order['metode_pembayaran']); ?></strong></div>
+                    <?php if (($success_order['harga_beli'] ?? null) !== null): ?>
+                        <div>Total Bayar: <strong style="color: #34d399;"><?php echo alzz_rp($success_order['harga_beli'] ?? 0); ?></strong></div>
+                    <?php endif; ?>
                     <div>Status Pesanan: <span style="font-weight: bold; color: #facc15;"><?php echo htmlspecialchars($success_order['status']); ?></span></div>
                     
                     <?php if (!empty($success_order['bukti_pembayaran'])): ?>
@@ -248,6 +263,9 @@ if ($id_produk === 0 && !$success_order) {
                         <div style="font-size: 11px;">Alamat: <strong><?php echo htmlspecialchars($ord['alamat']); ?></strong></div>
                         <div style="font-size: 11px;">Device: <strong><?php echo htmlspecialchars($ord['device']); ?></strong></div>
                         <div style="font-size: 11px; margin-top: 4px;">Metode Pembayaran: <strong><?php echo htmlspecialchars($ord['metode_pembayaran']); ?></strong></div>
+                        <?php if (($ord['harga_beli'] ?? null) !== null): ?>
+                            <div style="font-size: 11px;">Total Bayar: <strong style="color: #34d399;"><?php echo alzz_rp($ord['harga_beli']); ?></strong></div>
+                        <?php endif; ?>
                         <div style="font-size: 11px;">Status Pesanan: 
                             <span style="font-weight: bold; color: <?php echo ($ord['status'] == 'Selesai' || $ord['status'] == 'Dikonfirmasi') ? '#34d399' : '#facc15'; ?>">
                                 <?php echo htmlspecialchars($ord['status']); ?>
@@ -310,7 +328,17 @@ if ($id_produk === 0 && !$success_order) {
                     <img src="<?php echo htmlspecialchars($produk['foto_produk']); ?>" alt="" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px;">
                     <div>
                         <h3 style="color: #fff; font-size: 14px; margin-bottom: 4px;"><?php echo htmlspecialchars($produk['nama_app']); ?></h3>
-                        <div style="color: #38bdf8; font-weight: bold; font-size: 13px;">Rp <?php echo number_format($produk['harga'], 0, ',', '.'); ?></div>
+                        <?php if ($hinfo['aktif']): ?>
+                            <div style="color: #94a3b8; font-size: 11px; text-decoration: line-through;"><?php echo alzz_rp($hinfo['harga_asli']); ?></div>
+                            <div style="color: #38bdf8; font-weight: bold; font-size: 13px;"><?php echo alzz_rp($hinfo['harga_akhir']); ?>
+                                <span style="background:#ef4444;color:#fff;font-size:9px;padding:2px 6px;border-radius:6px;margin-left:4px;"><?php echo htmlspecialchars($hinfo['label']); ?></span>
+                            </div>
+                            <?php if ($hinfo['sampai_teks'] !== ''): ?>
+                                <div style="color:#facc15;font-size:10px;margin-top:2px;">Diskon sampai <?php echo htmlspecialchars($hinfo['sampai_teks']); ?></div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <div style="color: #38bdf8; font-weight: bold; font-size: 13px;"><?php echo alzz_rp($hinfo['harga_asli']); ?></div>
+                        <?php endif; ?>
                         <div style="color: #94a3b8; font-size: 11px; margin-top: 2px;">Stok: <?php echo $produk['stok']; ?></div>
                     </div>
                 </div>
@@ -381,6 +409,10 @@ if ($id_produk === 0 && !$success_order) {
                         <input type="file" name="bukti_pembayaran" accept="image/*" required style="width: 100%; font-size: 11px; color: #fff; padding: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
                     </div>
 
+                    <div style="background: rgba(56,189,248,0.08); border: 1px solid #38bdf8; border-radius: 8px; padding: 10px; margin-bottom: 12px; text-align: center;">
+                        <div style="font-size: 10px; color: #94a3b8;">Total yang harus dibayar</div>
+                        <div style="font-size: 16px; font-weight: bold; color: #38bdf8;"><?php echo alzz_rp($hinfo['harga_akhir']); ?></div>
+                    </div>
                     <button type="submit" class="btn-buy-mini" style="width: 100%; padding: 12px; font-size: 13px; cursor: pointer; font-weight: bold;">Kirim Pesanan & Bukti Pembayaran</button>
                 </form>
             </div>

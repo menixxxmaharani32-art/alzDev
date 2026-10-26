@@ -6,6 +6,7 @@ header("Pragma: no-cache");
 
 require_once 'auth_guard.php';
 require_once 'config.php';
+require_once 'diskon_lib.php';
 
 // 1. CEK APAKAH AKUN BUYER SUDAH DIHAPUS DARI DATABASE
 if (isset($_SESSION['buyer_logged']) && isset($_SESSION['buyer_user'])) {
@@ -122,6 +123,9 @@ $produk_result = db_query($conn, "SELECT * FROM produk ORDER BY id DESC");
                             <div class="product-photo-box">
                                 <img src="<?php echo htmlspecialchars($p['foto_produk']); ?>" alt="<?php echo htmlspecialchars($p['nama_app']); ?>">
                                 <span class="stock-badge-overlay">Stok: <?php echo $p['stok']; ?></span>
+                                <?php $hb = alzz_harga_info($p); if ($hb['aktif']): ?>
+                                    <span style="position:absolute;top:4px;left:4px;background:#ef4444;color:#fff;font-size:9px;font-weight:bold;padding:2px 6px;border-radius:6px;z-index:2;"><?php echo htmlspecialchars($hb['label']); ?></span>
+                                <?php endif; ?>
                             </div>
                             
                             <h3><?php echo htmlspecialchars($p['nama_app']); ?></h3>
@@ -137,7 +141,15 @@ $produk_result = db_query($conn, "SELECT * FROM produk ORDER BY id DESC");
 
                         <div>
                             <div class="card-footer">
-                                <span class="price-tag">Rp <?php echo number_format($p['harga'], 0, ',', '.'); ?></span>
+                                <?php $hi = alzz_harga_info($p); ?>
+                                <?php if ($hi['aktif']): ?>
+                                    <div style="line-height:1.25;">
+                                        <div style="color:#94a3b8;font-size:9px;text-decoration:line-through;"><?php echo alzz_rp($hi['harga_asli']); ?></div>
+                                        <span class="price-tag"><?php echo alzz_rp($hi['harga_akhir']); ?></span>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="price-tag"><?php echo alzz_rp($hi['harga_asli']); ?></span>
+                                <?php endif; ?>
                             </div>
                             
                             <?php if ($p['stok'] > 0): ?>

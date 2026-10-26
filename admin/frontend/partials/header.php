@@ -74,3 +74,39 @@ if (!defined('ALZZ_ADMIN')) { http_response_code(403); exit('Akses ditolak'); }
         return false;
     };
     </script>
+
+    <script>
+    // ===== Saat halaman dibuka: cek langganan, pulihkan status "🔔 On" & sinkronkan ke server =====
+    (function () {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+        if (Notification.permission !== 'granted') return;
+        function paintOn() {
+            var b = document.getElementById('notif-bell');
+            if (b) { b.textContent = '🔔 On'; b.className = 'on'; }
+            window.alzzPushOn = true;
+        }
+        navigator.serviceWorker.register('sw.js')
+            .then(function () { return navigator.serviceWorker.ready; })
+            .then(function (reg) {
+                return reg.pushManager.getSubscription().then(function (sub) {
+                    if (sub) return sub;
+                    // Langganan hilang (misal data browser dibersihkan): buat ulang diam-diam
+                    return fetch('push_api.php?action=key', { credentials: 'same-origin', cache: 'no-store' })
+                        .then(function (r) { return alzzJson(r, 'push_api.php (key)'); })
+                        .then(function (k) {
+                            if (!k.key) throw new Error('no key');
+                            return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: alzzB64(k.key) });
+                        });
+                });
+            })
+            .then(function (sub) {
+                return fetch('push_api.php?action=subscribe', {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(sub.toJSON())
+                }).then(function (r) { return r.ok ? r.json() : null; });
+            })
+            .then(function (res) { if (res && res.ok) paintOn(); })
+            .catch(function () { /* diam: tombol tetap 🔔 biasa, bisa diketuk manual */ });
+    })();
+    </script>

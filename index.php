@@ -50,6 +50,20 @@ $music_url  = $admin_data['music_url'] ?? '';
 
 // Ambil daftar produk dari database
 $produk_result = db_query($conn, "SELECT * FROM produk ORDER BY id DESC");
+
+// Produk yang sedang diskon otomatis tampil paling atas; urutan lainnya tetap (terbaru dulu)
+$produk_list = [];
+if ($produk_result) {
+    while ($__row = db_fetch_assoc($produk_result)) {
+        $__row['_urut'] = count($produk_list);
+        $produk_list[] = $__row;
+    }
+}
+usort($produk_list, function ($x, $y) {
+    $dx = alzz_harga_info($x)['aktif'] ? 0 : 1;
+    $dy = alzz_harga_info($y)['aktif'] ? 0 : 1;
+    return ($dx <=> $dy) ?: ($x['_urut'] <=> $y['_urut']);
+});
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -116,8 +130,8 @@ $produk_result = db_query($conn, "SELECT * FROM produk ORDER BY id DESC");
 
         <!-- KATALOG PRODUK ELEGANT (GRID 3 KOTAK KE SAMPING) -->
         <div class="product-grid-compact">
-            <?php if ($produk_result && db_num_rows($produk_result) > 0): ?>
-                <?php while ($p = db_fetch_assoc($produk_result)): ?>
+            <?php if (!empty($produk_list)): ?>
+                <?php foreach ($produk_list as $p): ?>
                     <div class="app-card-mini">
                         <div>
                             <div class="product-photo-box">
@@ -159,7 +173,7 @@ $produk_result = db_query($conn, "SELECT * FROM produk ORDER BY id DESC");
                             <?php endif; ?>
                         </div>
                     </div>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             <?php else: ?>
                 <div style="grid-column: span 3; text-align: center; color: var(--text-muted); padding: 20px; font-size: 11px;">
                     Belum ada produk yang tersedia saat ini.

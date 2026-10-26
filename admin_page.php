@@ -248,9 +248,6 @@ $tinggi_maks  = 84; // piksel
                         <label style="color: #cbd5e1; font-size: 10px; display: block; margin-bottom: 4px;">Banner / Foto Utama (pilih dari galeri):</label>
                         <input type="file" name="banner_file" id="bannerInput" accept="image/*" style="width: 100%; color: #cbd5e1; font-size: 11px;">
                         <img id="bannerPreview" alt="Banner saat ini" <?php if (!empty($admin_data['banner_url'])): ?>src="<?php echo htmlspecialchars($admin_data['banner_url']); ?>"<?php endif; ?> style="<?php echo empty($admin_data['banner_url']) ? 'display: none; ' : ''; ?>width: 100%; max-height: 140px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); margin-top: 8px;">
-                        <?php if (!empty($admin_data['banner_url'])): ?>
-                            <label style="color: #94a3b8; font-size: 10px; display: block; margin-top: 6px;"><input type="checkbox" name="hapus_banner" value="1"> Hapus banner (kosongkan)</label>
-                        <?php endif; ?>
                     </div>
                     <div style="margin-bottom: 8px;">
                         <label style="color: #cbd5e1; font-size: 10px; display: block; margin-bottom: 4px;">Musik (pilih file dari HP: mp3/m4a/ogg/wav, maks 15MB):</label>
@@ -258,7 +255,6 @@ $tinggi_maks  = 84; // piksel
                         <?php if (!empty($admin_data['music_url'])): ?>
                             <div style="margin-top: 8px; color: #94a3b8; font-size: 10px;">Musik saat ini (putar untuk tes):</div>
                             <audio controls preload="none" src="<?php echo htmlspecialchars($admin_data['music_url']); ?>" style="width: 100%; margin-top: 4px;"></audio>
-                            <label style="color: #94a3b8; font-size: 10px; display: block; margin-top: 6px;"><input type="checkbox" name="hapus_musik" value="1"> Matikan musik (kosongkan)</label>
                         <?php endif; ?>
                     </div>
                     <div style="margin-bottom: 12px;">

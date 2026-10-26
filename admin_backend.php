@@ -38,6 +38,22 @@ if (isset($_GET['notif'])) {
 
 // ---------------------------------------------------------------- [actions]
 // BACKEND: semua proses simpan / ubah / hapus (pesanan, produk, pembayaran, pengaturan, user)
+// Stok produk berkurang 1 otomatis saat pesanan pertama kali berstatus Dikonfirmasi / Selesai.
+// Kolom pesanan.stok_dikurangi menandai pesanan yang stoknya sudah dikurangi, jadi tidak pernah terpotong dua kali
+// (mis. status bolak-balik atau disimpan ulang). Kolom dibuat otomatis bila belum ada (SQL manualnya ada di penjelasan).
+function alzz_kurangi_stok_pesanan($conn, $id_pesanan) {
+    $id_pesanan = intval($id_pesanan);
+    $r = db_query($conn, "SELECT 1 FROM information_schema.columns WHERE table_name = 'pesanan' AND column_name = 'stok_dikurangi' LIMIT 1");
+    if (!($r && db_num_rows($r) > 0)) {
+        db_query($conn, "ALTER TABLE pesanan ADD COLUMN IF NOT EXISTS stok_dikurangi boolean NOT NULL DEFAULT false");
+        // Pesanan lama yang sudah dikonfirmasi dianggap stoknya sudah diatur manual (tidak dikurangi lagi)
+        db_query($conn, "UPDATE pesanan SET stok_dikurangi = true WHERE status IN ('Dikonfirmasi', 'Selesai') AND id <> $id_pesanan");
+    }
+    // Satu perintah atomik: tandai pesanan lalu kurangi stok produknya 1 (tidak turun di bawah 0)
+    db_query($conn, "WITH f AS (UPDATE pesanan SET stok_dikurangi = true WHERE id = $id_pesanan AND stok_dikurangi = false RETURNING produk_id)
+                     UPDATE produk SET stok = GREATEST(stok - 1, 0) WHERE id IN (SELECT produk_id FROM f)");
+}
+
 // 1. Proses Update Pesanan
 if (isset($_POST['update_pesanan'])) {
     $id_pesanan = intval($_POST['pesanan_id']);
@@ -60,6 +76,11 @@ if (isset($_POST['update_pesanan'])) {
     }
     if ($berubah) {
         db_query($conn, "UPDATE pesanan SET notif_buyer = 1 WHERE id = $id_pesanan");
+    }
+
+    // Pesanan dikonfirmasi admin -> stok produk berkurang 1 otomatis (sekali per pesanan)
+    if (in_array(trim($_POST['status']), ['Dikonfirmasi', 'Selesai'], true)) {
+        alzz_kurangi_stok_pesanan($conn, $id_pesanan);
     }
     
     header("Location: admin_dashboard.php?tab=situs");
@@ -229,10 +250,6 @@ if (isset($_POST['update_pengaturan'])) {
     $banner_raw = (string)($admin_lama['banner_url'] ?? '');
     $music_raw  = (string)($admin_lama['music_url'] ?? '');
     $err_upload = [];
-
-    // Centang "hapus" = dikosongkan (musik dimatikan / banner dihilangkan)
-    if (!empty($_POST['hapus_banner'])) { $banner_raw = ''; }
-    if (!empty($_POST['hapus_musik']))  { $music_raw  = ''; }
 
     // ---- Banner dari galeri ----
     if (isset($_FILES['banner_file']) && $_FILES['banner_file']['error'] !== UPLOAD_ERR_NO_FILE) {

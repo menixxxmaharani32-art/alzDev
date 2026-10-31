@@ -59,7 +59,10 @@ if (isset($_POST['update_pesanan'])) {
     $id_pesanan = intval($_POST['pesanan_id']);
     $status = db_real_escape_string($conn, $_POST['status']);
     $data_pesanan = db_real_escape_string($conn, $_POST['data_pesanan']);
-    $cara_login = db_real_escape_string($conn, $_POST['cara_login']);
+    $cara_login = db_real_escape_string($conn, $_POST['cara_login'] ?? '');
+
+    // Pastikan kolom cara_login ada di tabel pesanan (dibuat otomatis sekali saja)
+    db_query($conn, "ALTER TABLE pesanan ADD COLUMN IF NOT EXISTS cara_login text");
     
     // Cek apakah admin benar-benar mengubah sesuatu (untuk memunculkan angka notifikasi di riwayat pembeli)
     require_once ALZZ_ROOT . '/notif_buyer.php';
@@ -68,7 +71,7 @@ if (isset($_POST['update_pesanan'])) {
     $berubah = !$old_row
         || trim((string)$old_row['status']) !== trim($_POST['status'])
         || trim((string)$old_row['data_pesanan']) !== trim($_POST['data_pesanan'])
-        || trim((string)($old_row['cara_login'] ?? '')) !== trim($_POST['cara_login']);
+        || trim((string)($old_row['cara_login'] ?? '')) !== trim($_POST['cara_login'] ?? '');
 
     $update_query = "UPDATE pesanan SET status = '$status', data_pesanan = '$data_pesanan', cara_login = '$cara_login' WHERE id = $id_pesanan";
     if (!db_query($conn, $update_query)) {

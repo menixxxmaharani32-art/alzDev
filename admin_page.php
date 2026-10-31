@@ -288,7 +288,6 @@ $tinggi_maks  = 84; // piksel
                             <div style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px;">
                                 <div>Akun Username: <strong style="color: #38bdf8;"><?php echo htmlspecialchars($ord['username'] ?? 'Guest'); ?></strong></div>
                                 <div>Nama Pembeli: <strong style="color: #fff;"><?php echo htmlspecialchars($ord['nama'] ?? '-'); ?></strong></div>
-                                <div>Alamat: <strong style="color: #cbd5e1;"><?php echo htmlspecialchars($ord['alamat'] ?? '-'); ?></strong></div>
                                 <div>Device: <strong style="color: #38bdf8;"><?php echo htmlspecialchars($ord['device'] ?? '-'); ?></strong></div>
                             </div>
 

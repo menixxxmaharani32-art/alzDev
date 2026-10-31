@@ -52,53 +52,107 @@ $my_orders = null;
 // IP pembeli sengaja TIDAK dicatat (privasi)
 $current_buyer = $_SESSION['buyer_user'] ?? $_SESSION['admin_user'] ?? 'Guest';
 
+// Token sekali pakai agar satu form hanya bisa dikirim satu kali
+if (empty($_SESSION['checkout_token'])) {
+    $_SESSION['checkout_token'] = bin2hex(random_bytes(16));
+}
+
+// Setelah checkout berhasil kita redirect (PRG) supaya refresh tidak mengirim ulang pesanan
+if (isset($_GET['sukses']) && !empty($_SESSION['last_order_id'])) {
+    $__oid = intval($_SESSION['last_order_id']);
+    $success_order = db_fetch_assoc(db_query($conn, "SELECT p.*, pr.nama_app FROM pesanan p JOIN produk pr ON p.produk_id = pr.id WHERE p.id = $__oid AND p.username = '" . db_real_escape_string($conn, $current_buyer) . "'"));
+}
+
+$device_pilihan = ['Android', 'iOS', 'Laptop', 'PC', 'TV'];
+
 // Proses form checkout dikirim
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $id_produk > 0) {
-    $nama = db_real_escape_string($conn, $_POST['nama'] ?? '');
-    $alamat = db_real_escape_string($conn, $_POST['alamat'] ?? '');
-    $device = db_real_escape_string($conn, $_POST['device'] ?? '');
+    $nama = trim($_POST['nama'] ?? '');
+    $device_raw = trim($_POST['device'] ?? '');
+    $nama = db_real_escape_string($conn, $nama);
+    $device = in_array($device_raw, $device_pilihan, true) ? $device_raw : '';
+    $alamat = '-'; // kolom alamat tidak dipakai lagi
     $metode_pembayaran = db_real_escape_string($conn, $_POST['metode_pembayaran'] ?? '');
     $tanggal = date('Y-m-d H:i:s');
     $status = 'Pending';
-    
-    // Upload bukti pembayaran foto
-    $bukti_pembayaran = '';
-    if (isset($_FILES['bukti_pembayaran']) && $_FILES['bukti_pembayaran']['error'] === UPLOAD_ERR_OK) {
-        $file_tmp = $_FILES['bukti_pembayaran']['tmp_name'];
-        $file_name = time() . '_' . preg_replace('/[^A-Za-z0-9._-]/', '_', basename($_FILES['bukti_pembayaran']['name']));
-        require_once 'storage_pg.php';
-        // Bukti pembayaran disimpan di Supabase Storage (bukan di folder server)
-        $bukti_pembayaran = alzz_storage_upload($file_tmp, 'bukti/' . $file_name);
+
+    // Cek token: token hanya berlaku sekali, kiriman ganda (klik berkali-kali / refresh) ditolak
+    $token_post = $_POST['checkout_token'] ?? '';
+    $token_ok = !empty($_SESSION['checkout_token']) && hash_equals($_SESSION['checkout_token'], (string)$token_post);
+    if ($token_ok) {
+        unset($_SESSION['checkout_token']);
     }
-    
-    if (empty($nama) || empty($alamat) || empty($device)) {
-        echo "<script>alert('Harap isi Nama, Alamat, dan Merk Device dengan lengkap!');</script>";
-    } elseif (empty($metode_pembayaran)) {
-        echo "<script>alert('Harap pilih metode pembayaran terlebih dahulu!');</script>";
-    } elseif (empty($bukti_pembayaran)) {
-        echo "<script>alert('Harap unggah bukti pembayaran foto dengan benar!');</script>";
-    } else {
-        // Menyimpan pesanan lengkap dengan username buyer yang sedang login
-        // harga_beli = harga akhir saat dibeli (setelah diskon), dipakai untuk menghitung pendapatan
-        $harga_final = intval($hinfo['harga_akhir']);
-        $query = "INSERT INTO pesanan (produk_id, username, nama, alamat, device, metode_pembayaran, bukti_pembayaran, ip_address, status, tanggal, harga_beli) VALUES ('$id_produk', '$current_buyer', '$nama', '$alamat', '$device', '$metode_pembayaran', '$bukti_pembayaran', '-', '$status', '$tanggal', $harga_final)";
-        $simpan_ok = db_query($conn, $query);
-        if (!$simpan_ok) {
-            // cadangan bila kolom harga_beli belum ada
-            $query = "INSERT INTO pesanan (produk_id, username, nama, alamat, device, metode_pembayaran, bukti_pembayaran, ip_address, status, tanggal) VALUES ('$id_produk', '$current_buyer', '$nama', '$alamat', '$device', '$metode_pembayaran', '$bukti_pembayaran', '-', '$status', '$tanggal')";
-            $simpan_ok = db_query($conn, $query);
+
+    if (!$token_ok) {
+        // Kiriman ganda: kalau pesanan barusan sudah masuk, tampilkan saja pesanan itu
+        if (!empty($_SESSION['last_order_id']) && (time() - intval($_SESSION['last_order_at'] ?? 0)) < 120) {
+            header("Location: beli.php?id=" . $id_produk . "&sukses=1");
+            exit;
         }
-        if ($simpan_ok) {
-            $order_id = db_insert_id($conn);
-            // Kirim notifikasi push ke HP admin
-            require_once 'push_lib.php';
-            $__nama_app = '';
-            $__rp = db_query($conn, "SELECT nama_app FROM produk WHERE id = " . intval($id_produk));
-            if ($__rp && ($__rw = db_fetch_assoc($__rp))) $__nama_app = $__rw['nama_app'];
-            alzz_push_event($conn, 'order', '🛒 Pesanan baru', $current_buyer . ' memesan ' . $__nama_app, 'admin_dashboard.php?tab=situs');
-            $success_order = db_fetch_assoc(db_query($conn, "SELECT p.*, pr.nama_app FROM pesanan p JOIN produk pr ON p.produk_id = pr.id WHERE p.id = $order_id"));
+        $_SESSION['checkout_token'] = bin2hex(random_bytes(16));
+        echo "<script>alert('Form sudah dikirim atau kedaluwarsa. Silakan coba lagi.');</script>";
+    } elseif ($nama === '' || $device === '') {
+        $_SESSION['checkout_token'] = bin2hex(random_bytes(16));
+        echo "<script>alert('Harap isi Nama dan pilih Device dengan lengkap!');</script>";
+    } elseif (empty($metode_pembayaran)) {
+        $_SESSION['checkout_token'] = bin2hex(random_bytes(16));
+        echo "<script>alert('Harap pilih metode pembayaran terlebih dahulu!');</script>";
+    } else {
+        // Upload bukti pembayaran foto (hanya setelah isian valid)
+        $bukti_pembayaran = '';
+        if (isset($_FILES['bukti_pembayaran']) && $_FILES['bukti_pembayaran']['error'] === UPLOAD_ERR_OK) {
+            $file_tmp = $_FILES['bukti_pembayaran']['tmp_name'];
+            $file_name = time() . '_' . preg_replace('/[^A-Za-z0-9._-]/', '_', basename($_FILES['bukti_pembayaran']['name']));
+            require_once 'storage_pg.php';
+            // Bukti pembayaran disimpan di Supabase Storage (bukan di folder server)
+            $bukti_pembayaran = alzz_storage_upload($file_tmp, 'bukti/' . $file_name);
+        }
+
+        if (empty($bukti_pembayaran)) {
+            $_SESSION['checkout_token'] = bin2hex(random_bytes(16));
+            echo "<script>alert('Harap unggah bukti pembayaran foto dengan benar!');</script>";
         } else {
-            echo "<script>alert('Gagal memproses pesanan. Coba lagi.');</script>";
+            // Kunci per user+produk agar dua permintaan bersamaan tidak sama-sama menyimpan
+            $lock_key = db_real_escape_string($conn, $current_buyer . ':' . $id_produk);
+            db_query($conn, "SELECT pg_advisory_lock(hashtext('$lock_key'))");
+
+            // Pengaman terakhir: pesanan Pending yang sama (user + produk) dalam 2 menit dianggap kiriman ganda
+            $order_id = 0;
+            $dup = db_query($conn, "SELECT id FROM pesanan WHERE username = '" . db_real_escape_string($conn, $current_buyer) . "' AND produk_id = $id_produk AND status = 'Pending' AND tanggal >= '" . date('Y-m-d H:i:s', time() - 120) . "' ORDER BY id DESC LIMIT 1");
+            if ($dup && ($__d = db_fetch_assoc($dup))) {
+                $order_id = intval($__d['id']);
+            } else {
+                // harga_beli = harga akhir saat dibeli (setelah diskon), dipakai untuk menghitung pendapatan
+                $harga_final = intval($hinfo['harga_akhir']);
+                $query = "INSERT INTO pesanan (produk_id, username, nama, alamat, device, metode_pembayaran, bukti_pembayaran, ip_address, status, tanggal, harga_beli) VALUES ('$id_produk', '$current_buyer', '$nama', '$alamat', '$device', '$metode_pembayaran', '$bukti_pembayaran', '-', '$status', '$tanggal', $harga_final)";
+                $simpan_ok = db_query($conn, $query);
+                if (!$simpan_ok) {
+                    // cadangan bila kolom harga_beli belum ada
+                    $query = "INSERT INTO pesanan (produk_id, username, nama, alamat, device, metode_pembayaran, bukti_pembayaran, ip_address, status, tanggal) VALUES ('$id_produk', '$current_buyer', '$nama', '$alamat', '$device', '$metode_pembayaran', '$bukti_pembayaran', '-', '$status', '$tanggal')";
+                    $simpan_ok = db_query($conn, $query);
+                }
+                if ($simpan_ok) {
+                    $order_id = db_insert_id($conn);
+                    // Kirim notifikasi push ke HP admin (hanya 1x per pesanan baru)
+                    require_once 'push_lib.php';
+                    $__nama_app = '';
+                    $__rp = db_query($conn, "SELECT nama_app FROM produk WHERE id = " . intval($id_produk));
+                    if ($__rp && ($__rw = db_fetch_assoc($__rp))) $__nama_app = $__rw['nama_app'];
+                    alzz_push_event($conn, 'order', '🛒 Pesanan baru', $current_buyer . ' memesan ' . $__nama_app, 'admin_dashboard.php?tab=situs');
+                }
+            }
+
+            db_query($conn, "SELECT pg_advisory_unlock(hashtext('$lock_key'))");
+
+            if ($order_id > 0) {
+                $_SESSION['last_order_id'] = $order_id;
+                $_SESSION['last_order_at'] = time();
+                header("Location: beli.php?id=" . $id_produk . "&sukses=1");
+                exit;
+            } else {
+                $_SESSION['checkout_token'] = bin2hex(random_bytes(16));
+                echo "<script>alert('Gagal memproses pesanan. Coba lagi.');</script>";
+            }
         }
     }
 }
@@ -179,8 +233,7 @@ if ($id_produk === 0 && !$success_order) {
                     </div>
                     <div>Akun Username: <strong style="color: #38bdf8;"><?php echo htmlspecialchars($success_order['username']); ?></strong></div>
                     <div>Nama Pembeli: <strong><?php echo htmlspecialchars($success_order['nama']); ?></strong></div>
-                    <div>Alamat: <strong><?php echo htmlspecialchars($success_order['alamat']); ?></strong></div>
-                    <div>Merk Device: <strong><?php echo htmlspecialchars($success_order['device']); ?></strong></div>
+                    <div>Device: <strong><?php echo htmlspecialchars($success_order['device']); ?></strong></div>
                     <div style="margin-top: 4px;">Metode Pembayaran: <strong><?php echo htmlspecialchars($success_order['metode_pembayaran']); ?></strong></div>
                     <?php if (($success_order['harga_beli'] ?? null) !== null): ?>
                         <div>Total Bayar: <strong style="color: #34d399;"><?php echo alzz_rp($success_order['harga_beli'] ?? 0); ?></strong></div>
@@ -260,7 +313,6 @@ if ($id_produk === 0 && !$success_order) {
                             </span>
                         </div>
                         <div style="font-size: 11px;">Nama: <strong><?php echo htmlspecialchars($ord['nama']); ?></strong></div>
-                        <div style="font-size: 11px;">Alamat: <strong><?php echo htmlspecialchars($ord['alamat']); ?></strong></div>
                         <div style="font-size: 11px;">Device: <strong><?php echo htmlspecialchars($ord['device']); ?></strong></div>
                         <div style="font-size: 11px; margin-top: 4px;">Metode Pembayaran: <strong><?php echo htmlspecialchars($ord['metode_pembayaran']); ?></strong></div>
                         <?php if (($ord['harga_beli'] ?? null) !== null): ?>
@@ -343,20 +395,21 @@ if ($id_produk === 0 && !$success_order) {
                     </div>
                 </div>
 
-                <form action="" method="POST" enctype="multipart/form-data">
+                <form action="" method="POST" enctype="multipart/form-data" id="formCheckout" onsubmit="return kirimSekali(this)">
+                    <input type="hidden" name="checkout_token" value="<?php echo htmlspecialchars($_SESSION['checkout_token'] ?? ''); ?>">
                     <div style="margin-bottom: 12px;">
                         <label style="display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; font-weight: bold;">Nama:</label>
                         <input type="text" name="nama" placeholder="Masukkan nama Anda" required style="width: 100%; padding: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 11px;">
                     </div>
 
-                    <div style="margin-bottom: 12px;">
-                        <label style="display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; font-weight: bold;">Alamat:</label>
-                        <textarea name="alamat" placeholder="Masukkan nama kota saja" rows="2" required style="width: 100%; padding: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 11px;"></textarea>
-                    </div>
-
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; font-weight: bold;">Merk Device / Perangkat:</label>
-                        <input type="text" name="device" placeholder="Contoh: Samsung A52 / iPhone 11 / Laptop ASUS" required style="width: 100%; padding: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 11px;">
+                        <label style="display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; font-weight: bold;">Device:</label>
+                        <select name="device" required style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 11px;">
+                            <option value="" disabled selected>Pilih device</option>
+                            <?php foreach ($device_pilihan as $dv): ?>
+                                <option value="<?php echo htmlspecialchars($dv); ?>"><?php echo htmlspecialchars($dv); ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
                     <div style="margin-bottom: 16px;">
@@ -419,7 +472,7 @@ if ($id_produk === 0 && !$success_order) {
                         <div style="font-size: 10px; color: #94a3b8;">Total yang harus dibayar</div>
                         <div style="font-size: 16px; font-weight: bold; color: #38bdf8;"><?php echo alzz_rp($hinfo['harga_akhir']); ?></div>
                     </div>
-                    <button type="submit" class="btn-buy-mini" style="width: 100%; padding: 12px; font-size: 13px; cursor: pointer; font-weight: bold;">Kirim Pesanan & Bukti Pembayaran</button>
+                    <button type="submit" id="btnKirim" class="btn-buy-mini" style="width: 100%; padding: 12px; font-size: 13px; cursor: pointer; font-weight: bold;">Kirim Pesanan & Bukti Pembayaran</button>
                 </form>
             </div>
         <?php endif; ?>
@@ -433,6 +486,21 @@ if ($id_produk === 0 && !$success_order) {
     </div>
 
     <script>
+        // Cegah kirim ganda: setelah klik pertama, tombol dikunci dan klik berikutnya diabaikan
+        var sudahKirim = false;
+        function kirimSekali(form) {
+            if (sudahKirim) return false;
+            if (!form.checkValidity()) return true; // biarkan browser menampilkan pesan isian yang kurang
+            sudahKirim = true;
+            var btn = document.getElementById('btnKirim');
+            if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = 'Mengirim pesanan...'; }
+            return true;
+        }
+        // Tombol Back / kembali ke halaman ini: buka kunci lagi
+        window.addEventListener('pageshow', function(e) {
+            if (e.persisted) { sudahKirim = false; var b = document.getElementById('btnKirim'); if (b) { b.disabled = false; b.style.opacity = ''; b.textContent = 'Kirim Pesanan & Bukti Pembayaran'; } }
+        });
+
         function openQrModal(imgUrl) {
             const modal = document.getElementById('qrModal');
             const modalImg = document.getElementById('modalImg');

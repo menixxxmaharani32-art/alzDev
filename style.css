@@ -1,0 +1,473 @@
+:root {
+    --bg-color: #040711;
+    --card-bg: rgba(13, 19, 38, 0.9);
+    --card-border: rgba(56, 189, 248, 0.25);
+    --text-color: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent-blue: #38bdf8;
+    --accent-cyan: #06b6d4;
+    --accent-emerald: #10b981;
+    --glow-cyan: rgba(6, 182, 212, 0.4);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: #020408;
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* CONTAINER UTAMA HP */
+.mobile-container {
+    width: 100%;
+    max-width: 480px;
+    background: radial-gradient(circle at 50% 0%, rgba(14, 23, 48, 0.95) 0%, rgba(2, 4, 8, 0.99) 85%);
+    min-height: 100vh;
+    padding: 14px;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.95);
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* --- HERO BANNER / LOGO UTAMA (MELAYANG OTOMATIS) --- */
+.hero-banner {
+    width: 100%;
+    height: 32vh;
+    min-height: 220px;
+    border: 2px solid rgba(56, 189, 248, 0.4);
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(56, 189, 248, 0.25);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    cursor: pointer;
+    user-select: none;
+    animation: floatingBanner 4s ease-in-out infinite alternate;
+    transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes floatingBanner {
+    0% {
+        transform: translateY(0px) scale(1);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.8), 0 0 12px rgba(56, 189, 248, 0.25);
+        border-color: rgba(56, 189, 248, 0.4);
+    }
+    100% {
+        transform: translateY(-8px) scale(1.01);
+        box-shadow: 0 16px 35px rgba(0, 0, 0, 0.9), 0 0 25px rgba(6, 182, 212, 0.5);
+        border-color: rgba(6, 182, 212, 0.7);
+    }
+}
+
+.hero-photo-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.hero-photo-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    animation: zoomPulse 6s ease-in-out infinite alternate;
+    transition: transform 0.5s ease;
+}
+
+@keyframes zoomPulse {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.06); }
+}
+
+/* EFEK NEON SAAT BANNER DIPENCET */
+.hero-banner.neon-active, 
+.hero-banner:active {
+    animation-play-state: paused;
+    border-color: #38bdf8;
+    box-shadow: 0 0 25px rgba(56, 189, 248, 0.8), inset 0 0 15px rgba(6, 182, 212, 0.5);
+    transform: scale(0.975);
+}
+
+/* TULISAN ALZZ DEVELOPMENT */
+.hero-content {
+    position: relative;
+    z-index: 2;
+    padding: 16px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(4, 7, 16, 0.96) 100%);
+    text-align: center;
+    width: 100%;
+}
+
+.hero-content h1 {
+    font-size: 21px;
+    font-weight: 900;
+    margin-bottom: 4px;
+    letter-spacing: 1.2px;
+    background: linear-gradient(90deg, #38bdf8, #e2e8f0, #93c5fd);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+}
+
+.hero-content p {
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+/* --- MUSIC PLAYER WIDGET --- */
+.music-player-card {
+    background: rgba(13, 19, 38, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.music-info span {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #38bdf8;
+    margin-bottom: 4px;
+}
+
+audio {
+    width: 100%;
+    height: 30px;
+    filter: invert(0.9) hue-rotate(170deg);
+    outline: none;
+}
+
+/* --- SECTION HEADER ALL APP PREMIUM --- */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
+.catalog-title {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.catalog-text {
+    background: linear-gradient(90deg, #38bdf8, #818cf8, #34d399);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shineCatalog 3s linear infinite;
+}
+
+@keyframes shineCatalog {
+    to { background-position: 200% center; }
+}
+
+.admin-link {
+    color: var(--text-muted);
+    font-size: 11px;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--card-border);
+    transition: all 0.3s ease;
+}
+
+.admin-link:hover {
+    background: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+}
+
+/* --- KATALOG PRODUK ELEGANT (GRID 3 KOTAK KE SAMPING) --- */
+.product-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+.app-card-mini {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 8px;
+    backdrop-filter: blur(16px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+    transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+}
+
+.app-card-mini:hover {
+    transform: translateY(-5px) scale(1.02);
+    border-color: #38bdf8;
+    box-shadow: 0 10px 25px rgba(56, 189, 248, 0.3);
+}
+
+.app-card-mini:active {
+    transform: scale(0.94);
+    border-color: #06b6d4;
+    box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+}
+
+/* WADAH FOTO PRODUK + STOK OVERLAY */
+.product-photo-box {
+    width: 100%;
+    height: 75px;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+}
+
+.product-photo-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.app-card-mini:hover .product-photo-box img {
+    transform: scale(1.1);
+}
+
+/* EMBLEM STOK NEMPEL DI GAMBAR */
+.stock-badge-overlay {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(16, 185, 129, 0.9);
+    color: #ffffff;
+    font-size: 7.5px;
+    font-weight: 800;
+    padding: 2px 5px;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.app-card-mini h3 {
+    font-size: 11px;
+    font-weight: 800;
+    margin-bottom: 3px;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+}
+
+/* DURASI & PLAN CHIP */
+.product-duration {
+    font-size: 8.5px;
+    color: #38bdf8;
+    text-align: center;
+    margin-bottom: 4px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 5px;
+    padding: 2px 4px;
+}
+
+.app-card-mini p {
+    color: var(--text-muted);
+    font-size: 9px;
+    margin-bottom: 6px;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-align: center;
+}
+
+.card-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.price-tag {
+    font-weight: 900;
+    color: #34d399;
+    font-size: 10.5px;
+}
+
+.btn-buy-mini {
+    display: block;
+    width: 100%;
+    padding: 6px 4px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    text-align: center;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 9.5px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.btn-buy-mini:hover {
+    filter: brightness(1.15);
+    transform: scale(1.03);
+}
+
+.btn-buy-mini:active {
+    transform: scale(0.92);
+}
+
+/* --- ADMIN PANEL CARD & FORM --- */
+.admin-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(12px);
+}
+
+.admin-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #818cf8;
+}
+
+.form-group {
+    margin-bottom: 12px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: white;
+    font-size: 12px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+input:focus, textarea:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--card-bg);
+    font-size: 11px;
+}
+
+.admin-table th, .admin-table td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--card-border);
+    white-space: nowrap;
+}
+
+.admin-table th {
+    background-color: rgba(6, 182, 212, 0.15);
+    color: #38bdf8;
+    font-weight: 700;
+}
+
+/* --- INPUT KHUSUS HALAMAN LOGIN (Mencegah Auto-Zoom di HP) --- */
+.login-input {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: white;
+    font-size: 16px; /* Ukuran 16px wajib agar HP tidak melakukan zoom otomatis */
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.login-input:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+/* --- TAMBAHAN: Tombol Daftar / Auth Alternatif yang Terang & Interaktif --- */
+.auth-action-link {
+    display: block;
+    width: 100%;
+    padding: 12px 14px;
+    background: rgba(56, 189, 248, 0.18);
+    border: 1.5px solid #38bdf8;
+    border-radius: 10px;
+    color: #38bdf8;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2);
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    margin-top: 10px;
+}
+
+.auth-action-link:active {
+    transform: scale(1.06);
+    background: rgba(56, 189, 248, 0.35);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+}

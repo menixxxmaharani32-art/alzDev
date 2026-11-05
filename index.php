@@ -114,7 +114,7 @@ usort($produk_list, function ($x, $y) {
                 <div class="music-info">
                     <span>🎵 Backsound Musik</span>
                 </div>
-                <audio autoplay loop controls crossorigin="anonymous">
+                <audio autoplay loop crossorigin="anonymous">
                     <source src="<?php echo htmlspecialchars($music_url); ?>" type="audio/mpeg">
                 </audio>
             </div>

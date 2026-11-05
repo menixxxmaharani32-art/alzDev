@@ -145,8 +145,8 @@
             actx = actx || new AC();
             var src = actx.createMediaElementSource(audio);
             analyser = actx.createAnalyser();
-            analyser.fftSize = 512;                    // ±86 Hz per bin
-            analyser.smoothingTimeConstant = 0.35;     // responsif terhadap hentakan
+            analyser.fftSize = 1024;                   // ±43 Hz per bin: kick terbaca jelas
+            analyser.smoothingTimeConstant = 0.5;
             src.connect(analyser); analyser.connect(actx.destination);
             freq = new Uint8Array(analyser.frequencyBinCount);
             wired = true;
@@ -169,50 +169,96 @@
     if (srcEl) srcEl.addEventListener('error', noCors);
     audio.addEventListener('error', noCors);
 
-    // ---- deteksi beat ----
-    var N = 96, amp = [], tgt = [], i0;
-    for (i0 = 0; i0 < N; i0++) { amp.push(0); tgt.push(0); }
-    var BINS = 64, vals = new Array(BINS);
-    var peakAll = 0.5;                 // penguat otomatis (lagu pelan tetap bergerak)
-    var avgE = 0, prevE = 0, lastBeat = 0, beat = 0, bassN = 0, bassPeak = 0.3, bassFloor = 0, simT = 0;
+    // ---------- pembantu ----------
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+    function kf(dt, tau) { return 1 - Math.exp(-dt / tau); }          // koefisien penghalus berbasis waktu (mulus di semua FPS)
 
-    function readSpectrum(now) {
-        var k, e;
+    // Tiga pita: KICK (bass), SNARE (tengah), HAT (tinggi). Masing-masing dinormalisasi sendiri
+    // terhadap puncak/dasarnya, sehingga ketiganya bergerak penuh & berbeda-beda.
+    function mkBand(lo, hi, gap, atk, rel) {
+        return { lo: lo, hi: hi, gap: gap, atk: atk, rel: rel, peak: 0.3, floor: 0, avg: 0, prev: 0, last: 0, punch: 0, env: 0, n: 0 };
+    }
+    var kick = mkBand(1, 5, 170, 0.018, 0.16), snare = mkBand(9, 32, 150, 0.018, 0.12), hat = mkBand(48, 170, 70, 0.012, 0.07);
+    var kickHit = false;
+
+    function bandEnergy(b) {
+        var s = 0, c = 0;
+        for (var k = b.lo; k <= b.hi && k < freq.length; k++) { s += freq[k]; c++; }
+        return c ? s / c / 255 : 0;
+    }
+    function feed(b, e, dt, now) {
+        b.peak = Math.max(e, b.peak * Math.pow(0.996, dt * 60), 0.12);
+        b.floor += (Math.min(e, b.floor + 0.08) - b.floor) * kf(dt, 2.5);
+        b.n = Math.pow(clamp((e - b.floor) / Math.max(b.peak - b.floor, 0.1), 0, 1), 1.5);
+        b.avg += (e - b.avg) * kf(dt, 0.45);
+        var o = e - b.prev; b.prev = e;
+        var hit = false;
+        if (o > 0.015 && e > b.avg * 1.1 + 0.015 && b.n > 0.3 && now - b.last > b.gap) { b.last = now; b.punch = 0.55 + 0.45 * b.n; hit = true; }
+        b.punch *= Math.exp(-dt / 0.13);
+        var target = Math.max(b.n * 0.8, b.punch);
+        b.env += (target - b.env) * kf(dt, target > b.env ? b.atk : b.rel);
+        return hit;
+    }
+
+    // spektrum log untuk bentuk pinggiran
+    var BINS = 40, vals = new Array(BINS), peakAll = 0.4, logLo = Math.log(1), logHi = Math.log(190);
+    function readSpectrum(dt, now) {
+        var k, a, b, m, v;
         if (analyser && !simulated) {
             analyser.getByteFrequencyData(freq);
             var mx = 0;
-            for (k = 0; k < BINS; k++) { vals[k] = freq[k] / 255; if (vals[k] > mx) mx = vals[k]; }
-            peakAll = Math.max(mx, peakAll * 0.995, 0.35);
-            for (k = 0; k < BINS; k++) vals[k] = Math.min(1, vals[k] / peakAll);
-            // energi bass (kick): ± 90–430 Hz
-            e = (freq[1] + freq[2] + freq[3] + freq[4]) / 4 / 255;
-        } else {
-            simT += 0.016;
-            var kk = Math.pow(Math.max(0, Math.sin(simT * 13.4)), 8), of = Math.pow(Math.max(0, Math.sin(simT * 6.7 + 1)), 10) * 0.5;
             for (k = 0; k < BINS; k++) {
-                var fall = 1 - k / BINS;
-                vals[k] = Math.min(1, (kk * 0.9 + of * 0.6) * fall * (0.55 + 0.45 * Math.abs(Math.sin(simT * 3 + k * 1.7))));
+                a = Math.floor(Math.exp(logLo + (logHi - logLo) * k / BINS));
+                b = Math.max(a, Math.floor(Math.exp(logLo + (logHi - logLo) * (k + 1) / BINS)) - 1);
+                m = 0; for (var q = a; q <= b; q++) if (freq[q] > m) m = freq[q];
+                vals[k] = m / 255; if (vals[k] > mx) mx = vals[k];
             }
-            e = kk * 0.9 + of * 0.3;
+            peakAll = Math.max(mx, peakAll * Math.pow(0.996, dt * 60), 0.3);
+            for (k = 0; k < BINS; k++) vals[k] = clamp(vals[k] / peakAll, 0, 1);
+            kickHit = feed(kick, bandEnergy(kick), dt, now);
+            feed(snare, bandEnergy(snare), dt, now);
+            feed(hat, bandEnergy(hat), dt, now);
+        } else {
+            // beat tiruan bervariasi (4/4 ±126 BPM: kick, snare di ketukan 2 & 4, hat 8th, kekuatan acak)
+            simT += dt;
+            var beatLen = 0.476, ph = simT / beatLen, bi = Math.floor(ph), fr = ph - bi;
+            if (bi !== simBi) { simBi = bi; simVel = 0.6 + Math.random() * 0.4; simFill = Math.random() < 0.12; }
+            var kE = (bi % 4 === 0 || bi % 4 === 2 || simFill) ? Math.exp(-fr * 7) * simVel : 0;
+            var sE = (bi % 2 === 1) ? Math.exp(-fr * 9) * (0.7 + 0.3 * simVel) : 0;
+            var h8 = (ph * 2) % 1, hE = Math.exp(-h8 * 14) * (0.35 + 0.35 * Math.abs(Math.sin(simT * 2.3)));
+            for (k = 0; k < BINS; k++) {
+                var t = k / BINS;
+                vals[k] = clamp(kE * (1 - t * 1.4) + sE * Math.exp(-Math.pow((t - 0.5) * 3, 2)) + hE * t * 0.9, 0, 1) * (0.7 + 0.3 * Math.abs(Math.sin(simT * 4 + k)));
+            }
+            kickHit = (kE > 0.8 && now - kick.last > 170) ? (kick.last = now, true) : false;
+            kick.n = kE; kick.punch = Math.max(kick.punch * Math.exp(-dt / 0.13), kickHit ? kE : 0);
+            kick.env += (Math.max(kE * 0.8, kick.punch) - kick.env) * kf(dt, kE > kick.env ? 0.018 : 0.16);
+            snare.env += (sE - snare.env) * kf(dt, sE > snare.env ? 0.018 : 0.12);
+            hat.env += (hE - hat.env) * kf(dt, hE > hat.env ? 0.012 : 0.07);
         }
-        // bass ternormalisasi terhadap puncak & dasar yang menyesuaikan diri
-        bassPeak = Math.max(e, bassPeak * 0.996, 0.25);
-        bassFloor += (Math.min(e, bassFloor + 0.2) - bassFloor) * 0.01;
-        bassN = Math.max(0, Math.min(1, (e - bassFloor) / (bassPeak - bassFloor + 0.05)));
-        // hentakan: naik tiba-tiba di atas rata-rata
-        avgE += (e - avgE) * 0.05;
-        var flux = e - prevE; prevE = e;
-        if (flux > 0.025 && e > avgE * 1.08 && e > 0.2 && now - lastBeat > 120) { beat = 1; lastBeat = now; }
-        beat *= 0.84;
+    }
+    var simT = 0, simBi = -1, simVel = 1, simFill = false;
 
-        // petakan ke titik di pinggiran: bass bawah & samping, treble ke atas (simetris)
+    // ---- bentuk pinggiran ----
+    var N = 128, amp = new Array(N), tgt = new Array(N), i0;
+    for (i0 = 0; i0 < N; i0++) { amp[i0] = 0; tgt[i0] = 0; }
+    var axis = 0, axisT = 0, scaleEnv = 0, spin = 0;
+
+    function shape(dt, now, t) {
+        // tiap kick, poros bentuk berpindah ke sisi lain secara halus -> pola tidak pernah sama
+        if (kickHit) axisT += (Math.random() < 0.5 ? -1 : 1) * (0.55 + Math.random() * 0.95);
+        axisT += dt * (0.12 + snare.env * 0.5);
+        axis += (axisT - axis) * kf(dt, 0.16);
+        var base = Math.PI / 2 + axis;
         for (var j = 0; j < N; j++) {
-            var th = (j / N) * 6.2832;
-            var d = Math.abs(Math.atan2(Math.sin(th - 1.5708), Math.cos(th - 1.5708))) / 3.1416;   // 0 bawah .. 1 atas
-            var idx = Math.min(BINS - 1, Math.floor(Math.pow(d, 1.1) * BINS));
-            var v = Math.max(vals[idx], vals[Math.min(BINS - 1, idx + 1)] * 0.8);
-            var w = 1 - d * 0.7;                                                                  // hentakan paling terasa di bawah
-            tgt[j] = Math.min(1, Math.pow(v, 1.3) * 0.85 + beat * 0.55 * w + bassN * 0.18 * w);
+            var th = (j / N) * Math.PI * 2;
+            var dd = Math.abs(Math.atan2(Math.sin(th - base), Math.cos(th - base))) / Math.PI;   // 0..1 dari poros
+            var idx = Math.min(BINS - 1, Math.floor(dd * BINS));
+            var spec = Math.pow(vals[idx], 1.8);
+            var lobeK = Math.exp(-Math.pow(dd / 0.30, 2));                         // tonjolan besar di poros (kick)
+            var lobeS = Math.exp(-Math.pow((dd - 0.52) / 0.20, 2));                // dua tonjolan samping (snare)
+            var ripple = 0.5 + 0.5 * Math.sin(th * 11 + t * 0.012);                // riak halus (hat)
+            tgt[j] = clamp(spec * 0.34 + kick.env * lobeK * 0.95 + snare.env * lobeS * 0.7 + hat.env * ripple * 0.18 * (0.4 + dd), 0, 1);
         }
     }
 
@@ -223,25 +269,33 @@
     }
 
     // ---- gambar ----
-    var raf = 0, lastTime = '';
+    var raf = 0, lastTime = '', lastT = 0;
     function frame(t) {
         raf = 0;
+        var dt = lastT ? clamp((t - lastT) / 1000, 0.004, 0.05) : 0.016; lastT = t;
         var playing = !audio.paused && !audio.ended, i;
-        if (playing) readSpectrum(t);
-        else { for (i = 0; i < N; i++) tgt[i] = 0; beat = 0; bassN = 0; }
-        for (i = 0; i < N; i++) amp[i] += (tgt[i] - amp[i]) * (tgt[i] > amp[i] ? 0.85 : 0.22);   // naik hampir seketika, turun halus
-        var sm = new Array(N);
+        if (playing) { readSpectrum(dt, t); shape(dt, t, t); }
+        else {
+            kickHit = false;
+            kick.env *= Math.exp(-dt / 0.15); snare.env *= Math.exp(-dt / 0.15); hat.env *= Math.exp(-dt / 0.15);
+            for (i = 0; i < N; i++) tgt[i] = 0;
+        }
+        // gerak halus: naik cepat tapi tidak patah, turun mengalir
+        var ka = kf(dt, 0.035), kr = kf(dt, 0.17);
+        for (i = 0; i < N; i++) amp[i] += (tgt[i] - amp[i]) * (tgt[i] > amp[i] ? ka : kr);
+        var sm = new Array(N), sm2 = new Array(N);
         for (i = 0; i < N; i++) sm[i] = (amp[(i + N - 1) % N] + amp[i] * 2 + amp[(i + 1) % N]) / 4;
+        for (i = 0; i < N; i++) sm2[i] = (sm[(i + N - 1) % N] + sm[i] * 2 + sm[(i + 1) % N]) / 4;
 
+        scaleEnv += ((kick.env * 0.8) - scaleEnv) * kf(dt, 0.05);
         ctx.clearRect(0, 0, S, S);
-        var cx = S / 2, cy = S / 2, R = S * 0.30 * (1 + (beat * 0.07 + bassN * 0.04));
+        var cx = S / 2, cy = S / 2, R = S * 0.30 * (1 + scaleEnv * 0.09);
 
-        // pita putih tipis di pinggiran
-        var ext = S * 0.17, base = R * 1.08, k, th, rr, outer = [], inner = [];
+        var ext = S * 0.18, base = R * 1.08, k, th, rr, outer = [], inner = [];
         for (k = 0; k < N; k++) {
             th = (k / N) * 6.2832;
-            rr = base + sm[k] * ext;       outer.push([cx + Math.cos(th) * rr, cy + Math.sin(th) * rr]);
-            rr = base + sm[k] * ext * 0.7 + 1; inner.push([cx + Math.cos(th) * rr, cy + Math.sin(th) * rr]);
+            rr = base + sm2[k] * ext;            outer.push([cx + Math.cos(th) * rr, cy + Math.sin(th) * rr]);
+            rr = base + sm2[k] * ext * 0.7 + 1;  inner.push([cx + Math.cos(th) * rr, cy + Math.sin(th) * rr]);
         }
         function path(pts) {
             ctx.moveTo((pts[0][0] + pts[N - 1][0]) / 2, (pts[0][1] + pts[N - 1][1]) / 2);
@@ -249,20 +303,18 @@
             ctx.closePath();
         }
         ctx.save();
-        ctx.shadowColor = 'rgba(255,255,255,' + (0.3 + beat * 0.6) + ')'; ctx.shadowBlur = 3 + beat * 8;
+        ctx.shadowColor = 'rgba(255,255,255,' + (0.3 + kick.env * 0.6) + ')'; ctx.shadowBlur = 3 + kick.env * 8;
         ctx.beginPath(); path(outer); path(inner); ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill('evenodd');
         ctx.beginPath(); path(outer); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.stroke();
         ctx.restore();
 
-        // isi hitam + cincin perak
         ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.fillStyle = '#030303'; ctx.fill();
         var gr = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
         gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.25, '#9ca3af'); gr.addColorStop(0.5, '#f9fafb'); gr.addColorStop(0.75, '#6b7280'); gr.addColorStop(1, '#ffffff');
-        ctx.save(); ctx.shadowColor = 'rgba(255,255,255,0.6)'; ctx.shadowBlur = 3 + beat * 8;
+        ctx.save(); ctx.shadowColor = 'rgba(255,255,255,0.6)'; ctx.shadowBlur = 3 + kick.env * 8;
         ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.lineWidth = Math.max(2.2, R * 0.09); ctx.strokeStyle = gr; ctx.stroke();
         ctx.restore();
 
-        // ikon play / pause di tengah
         ctx.fillStyle = 'rgba(255,255,255,0.92)';
         var u = R * 0.38;
         if (playing) {
@@ -277,11 +329,11 @@
 
         var still = true;
         for (i = 0; i < N; i++) { if (amp[i] > 0.004) { still = false; break; } }
-        if (playing || !still) raf = requestAnimationFrame(frame);
+        if (playing || !still) raf = requestAnimationFrame(frame); else lastT = 0;
     }
     function start() { if (!raf) raf = requestAnimationFrame(frame); }
     audio.addEventListener('pause', start);
     audio.addEventListener('seeked', function () { lastTime = ''; start(); });
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) start(); });
+    document.addEventListener('visibilitychange', function () { lastT = 0; if (!document.hidden) start(); });
     start();
 })();

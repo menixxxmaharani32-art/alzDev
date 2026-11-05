@@ -265,6 +265,77 @@ $tinggi_maks  = 84; // piksel
                     </div>
                     <button type="submit" name="update_pengaturan" class="btn-buy-mini" style="width: 100%; padding: 8px; font-size: 11px; cursor: pointer;">Simpan Pengaturan Situs</button>
                 </form>
+                <script>
+                // Upload musik LANGSUNG ke Supabase (melewati batas 4,5MB Vercel). Ditaruh di sini (inline) supaya tidak tergantung cache admin.js.
+                (function () {
+                    var form = document.getElementById('formPengaturan');
+                    var inp  = document.getElementById('musicInput');
+                    var hid  = document.getElementById('musicDirect');
+                    var st   = document.getElementById('musicStatus');
+                    if (!form || !inp || !hid || !st) return;
+                    var sedang = false;
+                    function info(t, err) { st.style.display = 'block'; st.style.color = err ? '#fca5a5' : '#38bdf8'; st.textContent = t; }
+
+                    inp.addEventListener('change', function () {
+                        hid.value = '';
+                        var f = inp.files && inp.files[0];
+                        if (f) info('Dipilih: ' + f.name + ' (' + (f.size / 1048576).toFixed(1) + ' MB) - akan diunggah langsung ke Supabase saat Simpan.');
+                        else st.style.display = 'none';
+                    });
+
+                    form.addEventListener('submit', function (e) {
+                        var f = inp.files && inp.files[0];
+                        if (!f || hid.value) return;          // tidak ada musik baru -> kirim form biasa
+                        e.preventDefault();                    // file musik TIDAK PERNAH dikirim lewat server
+                        if (sedang) return;
+                        var ext = (f.name.split('.').pop() || '').toLowerCase();
+                        if (['mp3', 'm4a', 'ogg', 'wav', 'aac'].indexOf(ext) < 0) { info('Format musik tidak didukung (mp3/m4a/ogg/wav/aac)', true); return; }
+                        if (f.size > 15 * 1024 * 1024) { info('Musik lebih dari 15MB', true); return; }
+                        sedang = true;
+                        var btn = form.querySelector('button[type=submit]');
+                        if (btn) btn.disabled = true;
+                        info('Menyiapkan upload musik...');
+
+                        fetch('admin_dashboard.php?sign_music=1&ext=' + encodeURIComponent(ext), { credentials: 'same-origin' })
+                            .then(function (r) { return r.text(); })
+                            .then(function (t) {
+                                var d; try { d = JSON.parse(t); } catch (x) { throw new Error('Jawaban server tidak valid: ' + t.substring(0, 80)); }
+                                if (!d || !d.ok) throw new Error((d && d.error) || 'Gagal membuat URL upload');
+                                return new Promise(function (ok, gagal) {
+                                    var x = new XMLHttpRequest();
+                                    x.open('PUT', d.upload_url);
+                                    x.upload.onprogress = function (ev) {
+                                        if (ev.lengthComputable) info('Mengunggah musik... ' + Math.round(ev.loaded / ev.total * 100) + '%');
+                                    };
+                                    x.onload = function () {
+                                        if (x.status >= 200 && x.status < 300) ok(d.public_url);
+                                        else gagal(new Error('Upload ditolak Supabase (HTTP ' + x.status + '): ' + (x.responseText || '').substring(0, 120)));
+                                    };
+                                    x.onerror = function () { gagal(new Error('Koneksi terputus saat upload')); };
+                                    var fd = new FormData();
+                                    fd.append('cacheControl', '3600');
+                                    fd.append('', f);
+                                    x.send(fd);
+                                });
+                            })
+                            .then(function (url) {
+                                hid.value = url;
+                                inp.disabled = true;           // file tidak ikut dikirim ke server
+                                info('Musik terunggah, menyimpan pengaturan...');
+                                var h = document.createElement('input');
+                                h.type = 'hidden'; h.name = 'update_pengaturan'; h.value = '1';
+                                form.appendChild(h);
+                                form.submit();
+                            })
+                            .catch(function (err) {
+                                sedang = false;
+                                if (btn) btn.disabled = false;
+                                info('Gagal: ' + err.message, true);
+                            });
+                    });
+                })();
+                </script>
+
             </div>
 
             <!-- Kelola Pesanan Masuk -->

@@ -33,67 +33,6 @@
     alzzPilihGambar('bannerInput', 'bannerPreview', 1600, 0.88, 'banner.jpg');
     alzzPilihGambar('qrisInput', 'qrisPreview', 1600, 0.92, 'qris.jpg'); // QRIS dibuat lebih tajam agar tetap terbaca scanner
 
-// ===== Dashboard admin: upload musik langsung ke Supabase (tanpa lewat server, jadi file 5MB+ tidak error) =====
-    (function () {
-        var form = document.getElementById('formPengaturan');
-        var inp = document.getElementById('musicInput');
-        if (!form || !inp) return;
-        var hid = document.getElementById('musicDirect');
-        var st = document.getElementById('musicStatus');
-        var sedang = false;
-        function info(t, err) { st.style.display = 'block'; st.style.color = err ? '#fca5a5' : '#38bdf8'; st.textContent = t; }
-
-        form.addEventListener('submit', function (e) {
-            var f = inp.files && inp.files[0];
-            if (!f || hid.value) return;           // tidak ada musik baru -> kirim form biasa
-            e.preventDefault();
-            if (sedang) return;
-            var ext = (f.name.split('.').pop() || '').toLowerCase();
-            if (['mp3', 'm4a', 'ogg', 'wav', 'aac'].indexOf(ext) < 0) { info('Format musik tidak didukung (mp3/m4a/ogg/wav/aac)', true); return; }
-            if (f.size > 15 * 1024 * 1024) { info('Musik lebih dari 15MB', true); return; }
-            sedang = true;
-            var btn = form.querySelector('button[type=submit]');
-            if (btn) { btn.disabled = true; }
-            info('Menyiapkan upload musik...');
-
-            fetch('admin_dashboard.php?sign_music=1&ext=' + encodeURIComponent(ext), { credentials: 'same-origin' })
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    if (!d || !d.ok) throw new Error((d && d.error) || 'Gagal membuat URL upload');
-                    return new Promise(function (ok, gagal) {
-                        var x = new XMLHttpRequest();
-                        x.open('PUT', d.upload_url);
-                        x.upload.onprogress = function (ev) {
-                            if (ev.lengthComputable) info('Mengunggah musik... ' + Math.round(ev.loaded / ev.total * 100) + '%');
-                        };
-                        x.onload = function () {
-                            if (x.status >= 200 && x.status < 300) ok(d.public_url);
-                            else gagal(new Error('Upload ditolak Supabase (HTTP ' + x.status + ')'));
-                        };
-                        x.onerror = function () { gagal(new Error('Koneksi terputus saat upload')); };
-                        var fd = new FormData();
-                        fd.append('cacheControl', '3600');
-                        fd.append('', f);
-                        x.send(fd);
-                    });
-                })
-                .then(function (url) {
-                    hid.value = url;
-                    inp.disabled = true;           // file tidak ikut dikirim lagi ke server
-                    info('Musik terunggah, menyimpan pengaturan...');
-                    var h = document.createElement('input');   // tombol submit tidak ikut terkirim lewat form.submit()
-                    h.type = 'hidden'; h.name = 'update_pengaturan'; h.value = '1';
-                    form.appendChild(h);
-                    form.submit();
-                })
-                .catch(function (err) {
-                    sedang = false;
-                    if (btn) { btn.disabled = false; }
-                    info('Gagal: ' + err.message, true);
-                });
-        });
-    })();
-
 // ===== Dashboard admin: notifikasi =====
     (function () {
         var CFG = window.ALZZ_ADMIN || {};

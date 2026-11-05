@@ -36,6 +36,20 @@ if (isset($_GET['notif'])) {
     exit;
 }
 
+// ===== ENDPOINT URL UPLOAD MUSIK LANGSUNG KE SUPABASE (dipanggil JavaScript, melewati batas 4,5MB Vercel) =====
+if (isset($_GET['sign_music'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    $ext = strtolower(preg_replace('/[^a-z0-9]/i', '', (string)($_GET['ext'] ?? '')));
+    if (!in_array($ext, ['mp3', 'm4a', 'ogg', 'wav', 'aac'], true)) {
+        echo json_encode(['ok' => false, 'error' => 'Format musik tidak didukung (mp3/m4a/ogg/wav/aac)']); exit;
+    }
+    require_once ALZZ_ROOT . '/storage_pg.php';
+    $sg = alzz_storage_signed_upload('music/music_' . time() . '_' . bin2hex(random_bytes(3)) . '.' . $ext);
+    if ($sg) { echo json_encode(['ok' => true, 'upload_url' => $sg['upload_url'], 'public_url' => $sg['public_url']]); }
+    else { echo json_encode(['ok' => false, 'error' => $GLOBALS['__storage_last'] ?? 'Gagal membuat URL upload']); }
+    exit;
+}
+
 // ---------------------------------------------------------------- [actions]
 // BACKEND: semua proses simpan / ubah / hapus (pesanan, produk, pembayaran, pengaturan, user)
 // Stok produk berkurang 1 otomatis saat pesanan pertama kali berstatus Dikonfirmasi / Selesai.
@@ -244,7 +258,7 @@ if (isset($_GET['hapus_metode'])) {
 }
 
 // 8. Proses Update Pengaturan Situs & Nomor WhatsApp Admin
-// Banner dipilih dari galeri HP (jpg/png/gif/webp, maks 8MB) dan musik dipilih dari file HP (maks 15MB),
+// Banner dipilih dari galeri HP (jpg/png/gif/webp, maks 8MB) dan musik dipilih dari file HP (maks 15MB, diunggah langsung ke Supabase lewat browser),
 // keduanya disimpan di Supabase Storage. Kalau tidak memilih file baru, nilai lama tetap dipakai.
 if (isset($_POST['update_pengaturan'])) {
     $cek_admin  = db_query($conn, "SELECT * FROM admin ORDER BY id LIMIT 1");
@@ -294,6 +308,14 @@ if (isset($_POST['update_pengaturan'])) {
             $why_m = 'Upload ditolak server (kode ' . intval($_FILES['music_file']['error']) . ')';
         }
         if ($why_m !== '') { $err_upload[] = 'Musik: ' . $why_m; }
+    }
+
+    // ---- Musik yang sudah diunggah langsung dari browser ke Supabase (file besar) ----
+    if (!empty($_POST['music_direct'])) {
+        $md = (string)$_POST['music_direct'];
+        $prefix = rtrim((string)getenv('SUPABASE_URL'), '/') . '/storage/v1/object/public/' . rawurlencode(getenv('SUPABASE_BUCKET') ?: 'uploads') . '/music/';
+        if ($prefix !== '' && strpos($md, $prefix) === 0 && !preg_match('/[\s"\'<>]/', $md)) { $music_raw = $md; }
+        else { $err_upload[] = 'Musik: alamat file tidak valid'; }
     }
 
     $banner_url = db_real_escape_string($conn, $banner_raw);

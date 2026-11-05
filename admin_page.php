@@ -243,7 +243,7 @@ $tinggi_maks  = 84; // piksel
                 <?php if (($_GET['err'] ?? '') === 'upload'): ?>
                     <div style="background: rgba(239,68,68,0.12); border: 1px solid #ef4444; color: #fca5a5; padding: 8px; border-radius: 6px; font-size: 10px; margin-bottom: 8px;">Banner / musik gagal diunggah (pengaturan lain tetap tersimpan).<?php if (!empty($_GET['why'])): ?><br><b>Penyebab:</b> <?php echo htmlspecialchars(substr($_GET['why'], 0, 220)); ?><?php endif; ?></div>
                 <?php endif; ?>
-                <form action="" method="POST" enctype="multipart/form-data">
+                <form action="" method="POST" enctype="multipart/form-data" id="formPengaturan">
                     <div style="margin-bottom: 8px;">
                         <label style="color: #cbd5e1; font-size: 10px; display: block; margin-bottom: 4px;">Banner / Foto Utama (pilih dari galeri):</label>
                         <input type="file" name="banner_file" id="bannerInput" accept="image/*" style="width: 100%; color: #cbd5e1; font-size: 11px;">
@@ -251,7 +251,9 @@ $tinggi_maks  = 84; // piksel
                     </div>
                     <div style="margin-bottom: 8px;">
                         <label style="color: #cbd5e1; font-size: 10px; display: block; margin-bottom: 4px;">Musik (pilih file dari HP: mp3/m4a/ogg/wav, maks 15MB):</label>
-                        <input type="file" name="music_file" accept="audio/*" style="width: 100%; color: #cbd5e1; font-size: 11px;">
+                        <input type="file" name="music_file" id="musicInput" accept="audio/*" style="width: 100%; color: #cbd5e1; font-size: 11px;">
+                        <input type="hidden" name="music_direct" id="musicDirect" value="">
+                        <div id="musicStatus" style="display: none; margin-top: 6px; color: #38bdf8; font-size: 10px;"></div>
                         <?php if (!empty($admin_data['music_url'])): ?>
                             <div style="margin-top: 8px; color: #94a3b8; font-size: 10px;">Musik saat ini (putar untuk tes):</div>
                             <audio controls preload="none" src="<?php echo htmlspecialchars($admin_data['music_url']); ?>" style="width: 100%; margin-top: 4px;"></audio>

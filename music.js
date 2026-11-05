@@ -179,7 +179,7 @@
         return { lo: lo, hi: hi, gap: gap, atk: atk, rel: rel, peak: 0.3, floor: 0, avg: 0, prev: 0, last: 0, punch: 0, env: 0, n: 0 };
     }
     var kick = mkBand(1, 5, 170, 0.018, 0.16), snare = mkBand(9, 32, 150, 0.018, 0.12), hat = mkBand(48, 170, 70, 0.012, 0.07);
-    var kickHit = false;
+    var kickHit = false, snareHit = false;
 
     function bandEnergy(b) {
         var s = 0, c = 0;
@@ -216,7 +216,7 @@
             peakAll = Math.max(mx, peakAll * Math.pow(0.996, dt * 60), 0.3);
             for (k = 0; k < BINS; k++) vals[k] = clamp(vals[k] / peakAll, 0, 1);
             kickHit = feed(kick, bandEnergy(kick), dt, now);
-            feed(snare, bandEnergy(snare), dt, now);
+            snareHit = feed(snare, bandEnergy(snare), dt, now);
             feed(hat, bandEnergy(hat), dt, now);
         } else {
             // beat tiruan bervariasi (4/4 ±126 BPM: kick, snare di ketukan 2 & 4, hat 8th, kekuatan acak)
@@ -230,6 +230,7 @@
                 var t = k / BINS;
                 vals[k] = clamp(kE * (1 - t * 1.4) + sE * Math.exp(-Math.pow((t - 0.5) * 3, 2)) + hE * t * 0.9, 0, 1) * (0.7 + 0.3 * Math.abs(Math.sin(simT * 4 + k)));
             }
+            snareHit = false;
             kickHit = (kE > 0.8 && now - kick.last > 170) ? (kick.last = now, true) : false;
             kick.n = kE; kick.punch = Math.max(kick.punch * Math.exp(-dt / 0.13), kickHit ? kE : 0);
             kick.env += (Math.max(kE * 0.8, kick.punch) - kick.env) * kf(dt, kE > kick.env ? 0.018 : 0.16);
@@ -240,25 +241,51 @@
     var simT = 0, simBi = -1, simVel = 1, simFill = false;
 
     // ---- bentuk pinggiran ----
+    // Tiap beat melahirkan "denyut": tonjolan tebal bergelombang di satu sisi (mula-mula bawah),
+    // naik sangat cepat, lalu MENYEBAR ke samping & atas sambil meredup mulus -> kembali jadi cincin tipis tenang.
     var N = 128, amp = new Array(N), tgt = new Array(N), i0;
     for (i0 = 0; i0 < N; i0++) { amp[i0] = 0; tgt[i0] = 0; }
-    var axis = 0, axisT = 0, scaleEnv = 0, spin = 0;
+    var scaleEnv = 0, pulses = [], lastC = Math.PI / 2, drift = 0;
+
+    function spawn(c, s, life, spread) {
+        pulses.push({ c: c, s: s, age: 0, life: life, spread: spread });
+        if (pulses.length > 5) pulses.shift();
+    }
 
     function shape(dt, now, t) {
-        // tiap kick, poros bentuk berpindah ke sisi lain secara halus -> pola tidak pernah sama
-        if (kickHit) axisT += (Math.random() < 0.5 ? -1 : 1) * (0.55 + Math.random() * 0.95);
-        axisT += dt * (0.12 + snare.env * 0.5);
-        axis += (axisT - axis) * kf(dt, 0.16);
-        var base = Math.PI / 2 + axis;
+        drift += dt * (0.10 + snare.env * 0.35);
+        if (kickHit) {
+            // lokasi pukulan: dominan di bawah, sesekali berpindah ke atas/samping agar tidak monoton
+            var r = Math.random();
+            lastC = Math.PI / 2 + (r < 0.55 ? 0 : (r < 0.8 ? Math.PI : (Math.random() < 0.5 ? -1 : 1) * (0.9 + Math.random() * 0.8))) + (Math.random() - 0.5) * 0.7;
+            spawn(lastC, 0.75 + 0.25 * kick.n, 0.17, 1);
+        }
+        if (snareHit) {
+            var side = (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random() * 0.5);
+            spawn(lastC + side, 0.42 + 0.3 * snare.n, 0.11, 0.7);
+        }
+        for (var q = pulses.length - 1; q >= 0; q--) {
+            pulses[q].age += dt;
+            if (pulses[q].age > pulses[q].life * 6) pulses.splice(q, 1);
+        }
+
         for (var j = 0; j < N; j++) {
             var th = (j / N) * Math.PI * 2;
-            var dd = Math.abs(Math.atan2(Math.sin(th - base), Math.cos(th - base))) / Math.PI;   // 0..1 dari poros
-            var idx = Math.min(BINS - 1, Math.floor(dd * BINS));
-            var spec = Math.pow(vals[idx], 1.8);
-            var lobeK = Math.exp(-Math.pow(dd / 0.30, 2));                         // tonjolan besar di poros (kick)
-            var lobeS = Math.exp(-Math.pow((dd - 0.52) / 0.20, 2));                // dua tonjolan samping (snare)
-            var ripple = 0.5 + 0.5 * Math.sin(th * 11 + t * 0.012);                // riak halus (hat)
-            tgt[j] = clamp(spec * 0.34 + kick.env * lobeK * 0.95 + snare.env * lobeS * 0.7 + hat.env * ripple * 0.18 * (0.4 + dd), 0, 1);
+            var v = 0;
+            for (var p = 0; p < pulses.length; p++) {
+                var P = pulses[p], age = P.age;
+                var dd = Math.abs(Math.atan2(Math.sin(th - P.c), Math.cos(th - P.c))) / Math.PI;   // 0..1 dari pusat denyut
+                var env = (1 - Math.exp(-age / 0.010)) * Math.exp(-age / P.life);                  // naik cepat, turun mengalir
+                var width = (0.14 + 0.5 * (1 - Math.exp(-age / 0.11))) * P.spread;                // makin lama makin melebar
+                var lobe = Math.exp(-Math.pow(dd / width, 2));
+                var ripple = 0.6 + 0.4 * Math.cos(dd * Math.PI * 6 - age * 16);                    // gelombang merambat keluar
+                v += P.s * env * lobe * ripple;
+            }
+            // dasar tenang: spektrum halus + riak tipis dari hat
+            var idx = Math.min(BINS - 1, Math.floor((j / N) * BINS));
+            var base = Math.pow(vals[idx], 2) * 0.10;
+            var shimmer = (0.5 + 0.5 * Math.sin(th * 7 + drift * 3 + t * 0.002)) * hat.env * 0.06;
+            tgt[j] = clamp(v + base + shimmer, 0, 1);
         }
     }
 
@@ -276,22 +303,22 @@
         var playing = !audio.paused && !audio.ended, i;
         if (playing) { readSpectrum(dt, t); shape(dt, t, t); }
         else {
-            kickHit = false;
+            kickHit = false; snareHit = false; pulses.length = 0;
             kick.env *= Math.exp(-dt / 0.15); snare.env *= Math.exp(-dt / 0.15); hat.env *= Math.exp(-dt / 0.15);
             for (i = 0; i < N; i++) tgt[i] = 0;
         }
         // gerak halus: naik cepat tapi tidak patah, turun mengalir
-        var ka = kf(dt, 0.035), kr = kf(dt, 0.17);
+        var ka = kf(dt, 0.010), kr = kf(dt, 0.075);
         for (i = 0; i < N; i++) amp[i] += (tgt[i] - amp[i]) * (tgt[i] > amp[i] ? ka : kr);
         var sm = new Array(N), sm2 = new Array(N);
         for (i = 0; i < N; i++) sm[i] = (amp[(i + N - 1) % N] + amp[i] * 2 + amp[(i + 1) % N]) / 4;
         for (i = 0; i < N; i++) sm2[i] = (sm[(i + N - 1) % N] + sm[i] * 2 + sm[(i + 1) % N]) / 4;
 
-        scaleEnv += ((kick.env * 0.8) - scaleEnv) * kf(dt, 0.05);
+        scaleEnv += ((kick.env * 0.8) - scaleEnv) * kf(dt, 0.07);
         ctx.clearRect(0, 0, S, S);
         var cx = S / 2, cy = S / 2, R = S * 0.30 * (1 + scaleEnv * 0.09);
 
-        var ext = S * 0.18, base = R * 1.08, k, th, rr, outer = [], inner = [];
+        var ext = S * 0.21, base = R * 1.08, k, th, rr, outer = [], inner = [];
         for (k = 0; k < N; k++) {
             th = (k / N) * 6.2832;
             rr = base + sm2[k] * ext;            outer.push([cx + Math.cos(th) * rr, cy + Math.sin(th) * rr]);
